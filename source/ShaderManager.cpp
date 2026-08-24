@@ -112,7 +112,12 @@ namespace LMU
 
 	void ShaderManager::ToggleFogOfWarLocalMapShader()
 	{
-		isFogOfWarEnabled = !isFogOfWarEnabled;
+		SetFogOfWar(!isFogOfWarEnabled);
+	}
+
+	void ShaderManager::SetFogOfWar(bool a_enabled)
+	{
+		isFogOfWarEnabled = a_enabled;
 
 		SetPixelShaderProperties(shape, style);
 

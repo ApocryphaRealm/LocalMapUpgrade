@@ -31,6 +31,11 @@ namespace LMU
 
 		void ToggleFogOfWarLocalMapShader();
 
+		// Sets fog-of-war to a specific value rather than flipping it, so a settings menu
+		// checkbox can apply its own state directly instead of only being able to toggle
+		// whatever the current state happens to be.
+		void SetFogOfWar(bool a_enabled);
+
 		static void SetPixelShaderProperties(PixelShaderProperty::Shape a_shape, PixelShaderProperty::Style a_style);
 		static void GetPixelShaderProperties(PixelShaderProperty::Shape& a_shape, PixelShaderProperty::Style& a_style);
 

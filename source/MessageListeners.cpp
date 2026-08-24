@@ -8,6 +8,8 @@
 
 #include "IUI/API.h"
 
+#include "UI.h"
+
 const SKSE::LoadInterface* skse;
 
 namespace LMU
@@ -51,6 +53,11 @@ void SKSEMessageListener(SKSE::MessagingInterface::Message* a_msg)
 		DispatchMessage(pixelShaderPropertiesHook);
 
 		LMU::ExtraMarkersManager::InitSingleton();
+	}
+	// Once every SKSE plugin (including SKSE Menu Framework itself) has finished loading.
+	else if (a_msg->type == SKSE::MessagingInterface::kPostPostLoad)
+	{
+		UI::Register();
 	}
 }
 
