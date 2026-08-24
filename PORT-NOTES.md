@@ -1,14 +1,27 @@
 # Port notes — INI-only settings → SKSE Menu Framework
 
-**Version 1.0.0.** This is a fork of
+**Version 3.1.1.** This is a fork of
 [alexsylex/LocalMapUpgrade](https://github.com/alexsylex/LocalMapUpgrade) 3.1.0 that adds an
 in-game settings page driven by
 [SKSE Menu Framework 3](https://github.com/QTR-Modding/SKSE-Menu-Framework-3), so the local
 map's rendering and marker behavior can be configured while the game is running instead of
 only through `LocalMapUpgrade.ini` at startup.
 
-The upstream `README.md` and git history are untouched. This project's own versioning starts
-at 1.0.0 (the standing default for this project), independent of upstream's 3.1.0.
+The upstream `README.md` and git history are untouched.
+
+**Versioning note**: this build's compiled-in version tracks upstream (3.1.0) with the third
+part bumped for this fork's own changes, rather than starting fresh at this project's usual
+1.0.0. That is a deliberate exception: Dragon's Eye Minimap depends on Local Map Upgrade and
+checks its declared plugin version at load through SKSE's messaging interface
+(`skse->GetPluginInfo("LocalMapUpgrade")->version >= 0x03010000`, in its own
+`source/MessageListeners.cpp`) before it will run. The very first build of this fork shipped
+as its own 1.0.0, which is a real regression under that numeric check even though the fork is
+a strict superset of the upstream feature/API surface Dragon's Eye Minimap actually depends
+on - it failed at runtime with "Local Map Upgrade 3.1.0 or newer required" the moment both
+mods were installed together. A plugin's own declared version is a cross-mod compatibility
+signal other mods can query, not purely an internal package label, so for a mod that is itself
+a dependency of another mod in this project, tracking upstream's numbering (bumped for local
+changes) is correct and the "own versioning starts at 1.0.0" default does not apply.
 
 ## What changed from upstream
 
