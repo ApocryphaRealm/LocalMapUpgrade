@@ -132,6 +132,21 @@ namespace LMU
 		PixelShaderGroup& styleShaders = a_shape == PixelShaderProperty::Shape::kRound ? roundShaders : squaredShaders;
 		PixelShaderGroup::FogOfWarGroup& shaders = a_style == PixelShaderProperty::Style::kColor ? styleShaders.color : styleShaders.blackNWhite;
 		localMapPixelShader->shader = isFogOfWarEnabled ? shaders.fogOfWar : shaders.noFogOfWar;
+
+		// shape/style are per-instance members read back by GetPixelShaderProperties(), which
+		// Dragon's Eye Minimap calls every frame to snapshot the current style before it
+		// temporarily swaps in its own round shape for the minimap's own draw, then restores
+		// whatever GetPixelShaderProperties() told it afterwards. Leaving these two members
+		// unset here meant Get() always returned this singleton's construction-time value, so
+		// the minimap's restore step kept reverting the local map back to that frozen startup
+		// style on every frame - toggling color in the settings menu changed the pixel shader
+		// immediately (this line, above), which is why the full local map screen responded to
+		// it, but the very next minimap frame silently discarded the change.
+		if (singleton)
+		{
+			singleton->shape = a_shape;
+			singleton->style = a_style;
+		}
 	}
 
 	void ShaderManager::GetPixelShaderProperties(PixelShaderProperty::Shape& a_shape, PixelShaderProperty::Style& a_style)

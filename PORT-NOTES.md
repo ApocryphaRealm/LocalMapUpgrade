@@ -1,6 +1,6 @@
 # Port notes — INI-only settings → SKSE Menu Framework
 
-**Version 3.1.1.** This is a fork of
+**Version 3.1.2.** This is a fork of
 [alexsylex/LocalMapUpgrade](https://github.com/alexsylex/LocalMapUpgrade) 3.1.0 that adds an
 in-game settings page driven by
 [SKSE Menu Framework 3](https://github.com/QTR-Modding/SKSE-Menu-Framework-3), so the local
@@ -31,9 +31,9 @@ changes) is correct and the "own versioning starts at 1.0.0" default does not ap
 | `include/UI.h`, `source/UI.cpp` | New. The settings page, the registration, and the live-apply entry point. |
 | `include/Settings.h` | Added `Save()`, `RestoreDefaults()`, `Reload()` and `GetIniPath()` declarations; the settings themselves are unchanged from upstream. |
 | `source/Settings.cpp` | Captures the compiled-in values as defaults before reading the INI, and can write or re-read every setting. Reads go through a null-safe helper rather than dereferencing the collection directly, and registration goes through a checked helper - both hardening moves ported over from Dragon's Eye Minimap's own port, after that one crashed on startup once from exactly this class of bug (see that repo's PORT-NOTES.md). This codebase didn't have a live instance of that bug - every setting's declared type already matched its name prefix - but the same fragile pattern (`INISettingCollection::GetSetting<T>` dereferencing a possibly-null pointer) is used here too, so the same protection was applied preemptively rather than waiting to hit it. |
-| `include/ShaderManager.h`, `source/ShaderManager.cpp` | Added `SetFogOfWar(bool)`, a version of the existing `ToggleFogOfWarLocalMapShader()` that sets a specific value instead of only flipping the current one - needed so a settings-menu checkbox can apply its own state directly. Behavior of the existing toggle function is unchanged (it now just calls the new setter with the flipped value). |
+| `include/ShaderManager.h`, `source/ShaderManager.cpp` | Added `SetFogOfWar(bool)`, a version of the existing `ToggleFogOfWarLocalMapShader()` that sets a specific value instead of only flipping the current one - needed so a settings-menu checkbox can apply its own state directly. Behavior of the existing toggle function is unchanged (it now just calls the new setter with the flipped value). **3.1.2**: `SetPixelShaderProperties()` now also writes the shape/style it was called with back into the singleton's own `shape`/`style` members - see "The color/minimap bug fixed in 3.1.2" below. |
 | `source/MessageListeners.cpp` | Calls `UI::Register()` on `kPostPostLoad`. |
-| `CMakeLists.txt` | Version bumped to this project's own 1.0.0. Auto-deploy copy is now conditional on the target game folder existing (`EXISTS` check added) - the original always ran the copy step and failed the build on a machine without that exact Steam install path. |
+| `CMakeLists.txt` | Version tracks upstream (3.1.0), bumped for this fork's own changes - see the versioning note above. Auto-deploy copy is now conditional on the target game folder existing (`EXISTS` check added) - the original always ran the copy step and failed the build on a machine without that exact Steam install path. |
 | `cmake/ports/commonlibsse-ng/portfile.cmake` | Fetches CommonLibVR over git instead of a GitHub tarball, same as Dragon's Eye Minimap's fork - the pinned SHA512 for the same commit had already rotted (GitHub re-compresses generated tarballs over time) by the time this fork was set up. |
 
 ### Why the port file changed
@@ -55,6 +55,42 @@ either is instant, no shader recompile needed. Pan speed and every actor-visibil
 every time - a keypress, a marker-filter pass - rather than being cached anywhere, so a menu
 edit takes effect the next time that code runs, no explicit "apply" call needed for those at
 all.
+
+### The color/minimap bug fixed in 3.1.2
+
+Confirmed in game by the author: toggling Color changed the paused Local Map screen immediately but
+never reached Dragon's Eye Minimap, which kept showing whatever color setting was active at
+game load. Root cause: `ShaderManager::SetPixelShaderProperties(shape, style)` always applied
+the requested shape/style to the actual GPU shader pointer (`localMapPixelShader->shader`),
+but never wrote them back into the `ShaderManager` singleton's own `shape`/`style` members -
+only `GetPixelShaderProperties()` reads those, and it was therefore always returning this
+instance's construction-time value, frozen at whatever `localMapColor` was when the plugin
+first loaded.
+
+Dragon's Eye Minimap calls that Get/Set pair every frame in its own `WorldRendering.cpp`: it
+calls `GetPixelShaderProperties()` to snapshot the *current* shape and style, calls `Set()`
+with its own round shape and that snapshotted style to draw the minimap, then calls `Set()`
+again with the original shape and that same snapshotted style to restore the local map's own
+shader afterward. Because the snapshot never moved off the frozen startup value, that restore
+step was silently reverting the shared shader back to the original color setting on every
+single frame - which is also why the minimap itself never showed anything else, since it was
+drawn with that same stale snapshot too.
+
+This bug already existed upstream - the Get/Set hook and Dragon's Eye Minimap's use of it both
+predate this fork - but it was latent, because nothing in the original mod ever called `Set()`
+a second time after startup (there was no live toggle). Adding one is what exposed it. Fixed
+by having `SetPixelShaderProperties()` also update `singleton->shape`/`singleton->style`
+whenever it runs (guarded against the one call made from the constructor itself, before
+`singleton` is assigned). Fog of war was never affected by this, since `isFogOfWarEnabled` is
+tracked as a single always-current variable rather than a per-instance snapshot.
+
+Local Map Upgrade's actor-visibility toggles (enemy/hostile/guard/dead/teammate/neutral, and
+immersive mode) are unrelated to this bug and were never expected to affect the minimap:
+`ExtraMarkersManager::AddExtraMarkers` hooks specifically into the paused Local Map screen's
+own marker-list rebuild (`RE::LocalMapMenu`). Dragon's Eye Minimap has no actor-marker
+rendering of its own at all - it only ever mirrors the local map's rendering style (color, fog
+of war, shape), never its marker icons. Making the minimap show actor markers would be new
+functionality built into Dragon's Eye Minimap itself, not a fix to this port.
 
 ## Building
 
