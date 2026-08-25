@@ -1,4 +1,5 @@
 #include "ExtraMarkersManager.h"
+#include "RE/M/MapMenu.h"
 
 #include "Settings.h"
 #include "utils/Logger.h"
@@ -106,6 +107,22 @@ namespace LMU
 
 	void ExtraMarkersManager::DrawMapBorder(RE::LocalMapMenu& a_localMapMenu)
 	{
+		// Only draw when the real map menu is open.
+		//
+		// Dragon's Eye Minimap allocates its own RE::LocalMapMenu instance for the minimap, so
+		// this function runs against that instance too - and the border was being drawn into the
+		// minimap instead of the local map. the author saw exactly that: no border on the local map,
+		// but one inside the minimap. The LocalMapHolder bounds of (0,0)-(386,386) were the
+		// minimap's, not a full-screen map's.
+		//
+		// upstream's PlayerSetMarkerManager already guards the same way, with the comment "Only if
+		// the map menu is open. Make sure because someone maybe makes a minimap mod." That advice
+		// was already in this codebase and should have been followed here first time.
+		if (!RE::UI::GetSingleton()->GetMenu<RE::MapMenu>().get())
+		{
+			return;
+		}
+
 		RE::GFxValue& root = a_localMapMenu.GetRuntimeData().root;
 
 		if (!root.IsDisplayObject())
@@ -157,6 +174,38 @@ namespace LMU
 		//
 		// getBounds on the holder clip, measured against the same parent the border is drawn on,
 		// needs no conversion and follows the map wherever the game puts it.
+		// One-time dump of what the menu root actually contains. LocalMapHolder was a reasonable
+		// guess - it is what Map.LocalMap declares - but it is not reliably reachable here, and
+		// this is the second placement guess to miss. Rather than try a third, list the real
+		// members once so the right clip can be chosen from evidence.
+		{
+			static bool dumped = false;
+
+			if (!dumped)
+			{
+				dumped = true;
+
+				struct MemberDump : RE::GFxValue::ObjectVisitor
+				{
+					void Visit(const char* a_name, const RE::GFxValue& a_val) override
+					{
+						const char* kind = a_val.IsDisplayObject() ? "displayObject" :
+										   a_val.IsArray() ? "array" :
+										   a_val.IsObject() ? "object" :
+										   a_val.IsString() ? "string" :
+										   a_val.IsNumber() ? "number" :
+										   a_val.IsBool() ? "bool" : "other";
+
+						logger::info("  root member: {} ({})", a_name, kind);
+					}
+				};
+
+				logger::info("DrawMapBorder: enumerating the local map menu root's members -");
+				MemberDump visitor;
+				root.VisitMembers(&visitor);
+			}
+		}
+
 		RE::GFxValue holder;
 
 		if (!root.GetMember("LocalMapHolder", &holder) || !holder.IsDisplayObject())
