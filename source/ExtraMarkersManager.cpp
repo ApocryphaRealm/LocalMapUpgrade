@@ -216,11 +216,17 @@ namespace LMU
 		// 16:9 render area inset within it, so bordering that leaves a black margin outside the
 		// border - the border ends up visibly smaller than the map it is supposed to frame.
 		// The rest are fallbacks for layouts where Background is absent.
+		// Settled by measurement, not by argument. The border test build drew all four of these at
+		// once in different colours; measuring that screenshot's pixels and converting back through
+		// the red rectangle's known root bounds put the black plate at (2.0,1.7)-(798.4,448.3),
+		// aspect 1.784 - which is (0,0)-(800,450) to within the 2-unit stroke width. That is
+		// LocalMapHolder_mc and TextureHolder exactly. LocalMapRect is four units larger on every
+		// side, and Background is far larger still.
 		constexpr const char* kRectCandidates[] = {
-			"Background",
-			"LocalMapRect",
 			"LocalMapHolder_mc",
 			"TextureHolder",
+			"LocalMapRect",
+			"Background",
 		};
 
 		RE::GFxValue holder;
@@ -290,6 +296,11 @@ namespace LMU
 		// are in the map's own local space (the author's log had (600,325)-(2600,1450)), not menu
 		// coordinates. Dragon's Eye Minimap converts the same pair with TranslateToScreen and an
 		// identity matrix, and that conversion is what 1.1.0 was missing.
+		// DISABLED in the border test build. The extents give the correct aspect (1.778) but
+		// TranslateToScreen returns real screen pixels, while this clip draws in the menu's
+		// 800x450 stage space - it produced a 5000x2812.5 rectangle drawn far off-screen.
+		// Kept for its logging, which is what established the map is 16:9.
+		constexpr bool kUseExtentsForPlacement = false;
 		bool haveExtents = false;
 		float left = 0.0F, top = 0.0F, right = 0.0F, bottom = 0.0F;
 
@@ -312,7 +323,7 @@ namespace LMU
 				top = screenTopLeft.y;
 				right = screenBottomRight.x;
 				bottom = screenBottomRight.y;
-				haveExtents = true;
+				haveExtents = kUseExtentsForPlacement;
 
 				static bool loggedExtents = false;
 
@@ -401,27 +412,32 @@ namespace LMU
 					haveExtents ? "map extents" : (holderName ? holderName : "unknown"), left, top, right, bottom);
 			}
 		}
-		// Untarnished UI's off-white, the same colour the frame reskin uses.
-		constexpr double kBorderColour = 0xF5F2E9;
 		constexpr double kBorderThickness = 2.0;
 		constexpr double kBorderAlpha = 100.0;
 
 		border.Invoke("clear");
-
-		std::array<RE::GFxValue, 3> style{ RE::GFxValue{ kBorderThickness }, RE::GFxValue{ kBorderColour },
-										   RE::GFxValue{ kBorderAlpha } };
-		(void)border.Invoke("lineStyle", nullptr, style.data(), style.size());
 
 		auto draw = [&](const char* a_call, float a_x, float a_y) {
 			std::array<RE::GFxValue, 2> point{ RE::GFxValue{ static_cast<double>(a_x) }, RE::GFxValue{ static_cast<double>(a_y) } };
 			(void)border.Invoke(a_call, nullptr, point.data(), point.size());
 		};
 
-		draw("moveTo", left, top);
-		draw("lineTo", right, top);
-		draw("lineTo", right, bottom);
-		draw("lineTo", left, bottom);
-		draw("lineTo", left, top);
+		auto strokeRect = [&](double a_colour, float a_left, float a_top, float a_right, float a_bottom) {
+			std::array<RE::GFxValue, 3> style{ RE::GFxValue{ kBorderThickness }, RE::GFxValue{ a_colour },
+											   RE::GFxValue{ kBorderAlpha } };
+			(void)border.Invoke("lineStyle", nullptr, style.data(), style.size());
+
+			draw("moveTo", a_left, a_top);
+			draw("lineTo", a_right, a_top);
+			draw("lineTo", a_right, a_bottom);
+			draw("lineTo", a_left, a_bottom);
+			draw("lineTo", a_left, a_top);
+		};
+
+		// Untarnished UI's off-white, the same colour the frame reskin uses.
+		constexpr double kBorderColour = 0xF5F2E9;
+
+		strokeRect(kBorderColour, left, top, right, bottom);
 	}
 
 	void ExtraMarkersManager::AddExtraMarkers(RE::LocalMapMenu& a_localMapMenu)
