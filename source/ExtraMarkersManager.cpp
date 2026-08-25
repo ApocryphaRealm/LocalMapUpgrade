@@ -276,56 +276,118 @@ namespace LMU
 			}
 		}
 
-		for (const char* name : kRectCandidates)
-		{
-			if (root.GetMember(name, &holder) && holder.IsDisplayObject())
-			{
-				holderName = name;
+		// Ask the game where the map actually is, rather than guessing which clip represents it.
+		//
+		// Four builds were spent picking clips, and the measurements from 1.1.6 show why none of
+		// them can be right: LocalMapRect, LocalMapHolder_mc and TextureHolder are all the 800x450
+		// stage (aspect 1.778) and sit inside the black plate, while Background is 915.9x604.6
+		// (aspect 1.515) and falls well outside it. The plate is between the two, so no clip in the
+		// list describes it.
+		//
+		// LocalMapMenu carries topLeft/bottomRight, which the game maintains as the map's extents.
+		// 1.1.0 read exactly those and put the border off toward the bottom-right corner, which is
+		// how they got dismissed - but the fault was not the numbers, it was using them raw. They
+		// are in the map's own local space (the author's log had (600,325)-(2600,1450)), not menu
+		// coordinates. Dragon's Eye Minimap converts the same pair with TranslateToScreen and an
+		// identity matrix, and that conversion is what 1.1.0 was missing.
+		bool haveExtents = false;
+		float left = 0.0F, top = 0.0F, right = 0.0F, bottom = 0.0F;
 
-				break;
+		if (auto* movieView = a_localMapMenu.GetRuntimeData().movieView)
+		{
+			const RE::GPointF localTopLeft = a_localMapMenu.topLeft;
+			const RE::GPointF localBottomRight = a_localMapMenu.bottomRight;
+
+			// An unpopulated pair means the map has not reported its extents yet - it arrives a few
+			// frames after the menu opens. Fall through to the clip measurement rather than drawing a
+			// zero-sized border, and pick the extents up on a later frame (rule 17).
+			if (localBottomRight.x - localTopLeft.x > 1.0F && localBottomRight.y - localTopLeft.y > 1.0F)
+			{
+				float identityMat2D[2][3] = { { 1.0F, 0.0F, 0.0F }, { 0.0F, 1.0F, 0.0F } };
+
+				const RE::GPointF screenTopLeft = movieView->TranslateToScreen(localTopLeft, identityMat2D);
+				const RE::GPointF screenBottomRight = movieView->TranslateToScreen(localBottomRight, identityMat2D);
+
+				left = screenTopLeft.x;
+				top = screenTopLeft.y;
+				right = screenBottomRight.x;
+				bottom = screenBottomRight.y;
+				haveExtents = true;
+
+				static bool loggedExtents = false;
+
+				if (!loggedExtents)
+				{
+					loggedExtents = true;
+
+					const float width = right - left;
+					const float height = bottom - top;
+
+					logger::info("DrawMapBorder: map extents local ({},{})-({},{}) -> screen ({},{})-({},{}) - {}x{}, aspect {:.3f}",
+						localTopLeft.x, localTopLeft.y, localBottomRight.x, localBottomRight.y,
+						left, top, right, bottom, width, height,
+						height != 0.0F ? width / height : 0.0F);
+				}
 			}
 		}
 
-		if (!holderName)
+		if (!haveExtents)
 		{
-			static bool warnedNoHolder = false;
-
-			if (!warnedNoHolder)
+			for (const char* name : kRectCandidates)
 			{
-				logger::warn("DrawMapBorder: none of the expected map clips are present; the border cannot be placed");
-				warnedNoHolder = true;
+				if (root.GetMember(name, &holder) && holder.IsDisplayObject())
+				{
+					holderName = name;
+
+					break;
+				}
 			}
-
-			border.Invoke("clear");
-
-			return;
-		}
-		RE::GFxValue bounds;
-		std::array<RE::GFxValue, 1> against{ root };
-
-		if (!holder.Invoke("getBounds", &bounds, against.data(), against.size()) || !bounds.IsObject())
-		{
-			static bool warnedNoBounds = false;
-
-			if (!warnedNoBounds)
-			{
-				logger::warn("DrawMapBorder: getBounds on {} failed; the border cannot be placed", holderName);
-				warnedNoBounds = true;
-			}
-
-			return;
 		}
 
-		RE::GFxValue xMin, xMax, yMin, yMax;
-		bounds.GetMember("xMin", &xMin);
-		bounds.GetMember("xMax", &xMax);
-		bounds.GetMember("yMin", &yMin);
-		bounds.GetMember("yMax", &yMax);
+		if (!haveExtents)
+		{
+			if (!holderName)
+			{
+				static bool warnedNoHolder = false;
 
-		const float left = static_cast<float>(xMin.GetNumber());
-		const float top = static_cast<float>(yMin.GetNumber());
-		const float right = static_cast<float>(xMax.GetNumber());
-		const float bottom = static_cast<float>(yMax.GetNumber());
+				if (!warnedNoHolder)
+				{
+					logger::warn("DrawMapBorder: no map extents yet and none of the expected map clips are present; the border cannot be placed");
+					warnedNoHolder = true;
+				}
+
+				border.Invoke("clear");
+
+				return;
+			}
+
+			RE::GFxValue bounds;
+			std::array<RE::GFxValue, 1> against{ root };
+
+			if (!holder.Invoke("getBounds", &bounds, against.data(), against.size()) || !bounds.IsObject())
+			{
+				static bool warnedNoBounds = false;
+
+				if (!warnedNoBounds)
+				{
+					logger::warn("DrawMapBorder: getBounds on {} failed; the border cannot be placed", holderName);
+					warnedNoBounds = true;
+				}
+
+				return;
+			}
+
+			RE::GFxValue xMin, xMax, yMin, yMax;
+			bounds.GetMember("xMin", &xMin);
+			bounds.GetMember("xMax", &xMax);
+			bounds.GetMember("yMin", &yMin);
+			bounds.GetMember("yMax", &yMax);
+
+			left = static_cast<float>(xMin.GetNumber());
+			top = static_cast<float>(yMin.GetNumber());
+			right = static_cast<float>(xMax.GetNumber());
+			bottom = static_cast<float>(yMax.GetNumber());
+		}
 
 		// Runs every frame the map is open, so log only when the rectangle actually moves
 		// (CLAUDE.md rule 14). These are the numbers to check first if the border lands wrong.
@@ -335,7 +397,8 @@ namespace LMU
 			if (left != lastLeft || top != lastTop || right != lastRight || bottom != lastBottom)
 			{
 				lastLeft = left; lastTop = top; lastRight = right; lastBottom = bottom;
-				logger::debug("DrawMapBorder: {} bounds ({},{}) to ({},{})", holderName, left, top, right, bottom);
+				logger::debug("DrawMapBorder: placed from {} - ({},{}) to ({},{})",
+					haveExtents ? "map extents" : (holderName ? holderName : "unknown"), left, top, right, bottom);
 			}
 		}
 		// Untarnished UI's off-white, the same colour the frame reskin uses.
