@@ -47,8 +47,9 @@ namespace settings
 		inline bool localMapShowActorsOnlyWithDetectSpell = false;
 
 		// Draws a thin border around the local map's rectangle, in Untarnished UI's off-white.
-		// Off by default - it is a deliberate visual change, not something to impose on someone
-		// who just wants the map improvements.
-		inline bool localMapBorder = false;
+		// On by default: it frames the map cleanly at any resolution and reads as part of the
+		// map rather than as an addition, so it is worth showing without being asked for.
+		// Anyone who does not want it can turn it off in the settings menu.
+		inline bool localMapBorder = true;
 	}
 }

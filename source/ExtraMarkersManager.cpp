@@ -209,17 +209,72 @@ namespace LMU
 		// Names taken from the root member enumeration, not guessed. The first attempt looked for
 		// "LocalMapHolder" because that is what Map.LocalMap declares; the real member is
 		// "LocalMapHolder_mc", and there is a "LocalMapRect" that is a better target still since it
-		// is the map's rectangle rather than its container. Tried in order of preference, with the
-		// texture holder and background as fallbacks.
+		// is the map's rectangle rather than its container.
+		//
+		// "Background" is tried FIRST despite that. It is the black plate the map is drawn onto,
+		// and that plate is what reads as the edge of the map on screen. "LocalMapRect" is the
+		// 16:9 render area inset within it, so bordering that leaves a black margin outside the
+		// border - the border ends up visibly smaller than the map it is supposed to frame.
+		// The rest are fallbacks for layouts where Background is absent.
 		constexpr const char* kRectCandidates[] = {
+			"Background",
 			"LocalMapRect",
 			"LocalMapHolder_mc",
 			"TextureHolder",
-			"Background",
 		};
 
 		RE::GFxValue holder;
 		const char* holderName = nullptr;
+
+		// Measure and log every candidate once, not only the one that wins. Choosing the right clip
+		// has been the entire difficulty with this feature and has cost several builds, so if this
+		// choice is also wrong the next one can be made from the log rather than from another guess.
+		static bool measuredCandidates = false;
+
+		if (!measuredCandidates)
+		{
+			measuredCandidates = true;
+
+			for (const char* name : kRectCandidates)
+			{
+				RE::GFxValue candidate;
+
+				if (!root.GetMember(name, &candidate) || !candidate.IsDisplayObject())
+				{
+					logger::debug("DrawMapBorder: candidate {} is not present on the map root", name);
+
+					continue;
+				}
+
+				RE::GFxValue candidateBounds;
+				std::array<RE::GFxValue, 1> candidateAgainst{ root };
+
+				if (!candidate.Invoke("getBounds", &candidateBounds, candidateAgainst.data(), candidateAgainst.size()) ||
+					!candidateBounds.IsObject())
+				{
+					logger::debug("DrawMapBorder: candidate {} is present but getBounds failed", name);
+
+					continue;
+				}
+
+				RE::GFxValue cxMin, cxMax, cyMin, cyMax;
+
+				if (candidateBounds.GetMember("xMin", &cxMin) && candidateBounds.GetMember("xMax", &cxMax) &&
+					candidateBounds.GetMember("yMin", &cyMin) && candidateBounds.GetMember("yMax", &cyMax))
+				{
+					const double left = cxMin.GetNumber();
+					const double right = cxMax.GetNumber();
+					const double top = cyMin.GetNumber();
+					const double bottom = cyMax.GetNumber();
+					const double width = right - left;
+					const double height = bottom - top;
+
+					logger::debug("DrawMapBorder: candidate {} bounds ({},{}) to ({},{}) - {}x{}, aspect {:.3f}",
+						name, left, top, right, bottom, width, height,
+						height != 0.0 ? width / height : 0.0);
+				}
+			}
+		}
 
 		for (const char* name : kRectCandidates)
 		{
