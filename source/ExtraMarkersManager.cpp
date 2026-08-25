@@ -185,8 +185,25 @@ namespace LMU
 			{
 				dumped = true;
 
+				// Measure every display object, not only the ones with promising names. Four
+				// name-based guesses have missed, and the plate has been shown by measurement not to
+				// be any of them - so the useful question is no longer "is this clip the plate" but
+				// "which clip, if any, has the plate's dimensions". The plate is 838.7x492.3 at
+				// aspect 1.704; a match in this list is the answer, and no match proves the plate is
+				// not a direct child of the root at all.
+				// Descends one level, because the plate is very likely a child rather than a root
+				// member. Dragon's Eye Minimap hit exactly this: getBounds measures a clip's full
+				// render extent regardless of _visible, so a container's bounds are inflated by
+				// children that never draw. Its fix was to stop measuring the container and measure
+				// BackgroundArtSquare/BackgroundArtCircle - the clip that is exactly the visible art.
+				// Background here measures 915.9x604.6 against a visible plate of 838.7x492.3, which
+				// is the same symptom, so the plate is probably a named art clip inside it.
 				struct MemberDump : RE::GFxValue::ObjectVisitor
 				{
+					RE::GFxValue* against = nullptr;
+					const char* prefix = "";
+					int depth = 0;
+
 					void Visit(const char* a_name, const RE::GFxValue& a_val) override
 					{
 						const char* kind = a_val.IsDisplayObject() ? "displayObject" :
@@ -196,32 +213,93 @@ namespace LMU
 										   a_val.IsNumber() ? "number" :
 										   a_val.IsBool() ? "bool" : "other";
 
-						logger::info("  root member: {} ({})", a_name, kind);
+						if (!a_val.IsDisplayObject() || !against)
+						{
+							logger::info("  root member: {} ({})", a_name, kind);
+
+							return;
+						}
+
+						RE::GFxValue clip = a_val;
+						RE::GFxValue bounds;
+						std::array<RE::GFxValue, 1> args{ *against };
+
+						if (!clip.Invoke("getBounds", &bounds, args.data(), args.size()) || !bounds.IsObject())
+						{
+							logger::info("  root member: {} (displayObject, getBounds failed)", a_name);
+
+							return;
+						}
+
+						RE::GFxValue xMin, xMax, yMin, yMax;
+
+						if (!bounds.GetMember("xMin", &xMin) || !bounds.GetMember("xMax", &xMax) ||
+							!bounds.GetMember("yMin", &yMin) || !bounds.GetMember("yMax", &yMax))
+						{
+							logger::info("  root member: {} (displayObject, bounds unreadable)", a_name);
+
+							return;
+						}
+
+						const double l = xMin.GetNumber();
+						const double t = yMin.GetNumber();
+						const double r = xMax.GetNumber();
+						const double b = yMax.GetNumber();
+						const double w = r - l;
+						const double h = b - t;
+
+						// The plate, measured from a screenshot. Flag anything close so the match is
+						// obvious in the log rather than something to spot by eye among twenty lines.
+						const bool matchesPlate = std::abs(w - 838.7) < 25.0 && std::abs(h - 492.3) < 25.0;
+
+						logger::info("  {}{} ({},{})-({},{}) {}x{} aspect {:.3f}{}",
+							prefix, a_name, l, t, r, b, w, h, h != 0.0 ? w / h : 0.0,
+							matchesPlate ? "   <<<< MATCHES THE PLATE" : "");
+
+						// One level down is enough. The art clip sits directly inside its container in
+						// every case seen so far, and recursing without a bound risks walking the whole
+						// display list into the marker clips.
+						if (depth >= 1)
+						{
+							return;
+						}
+
+						std::string childPrefix = std::string("    ") + a_name + ".";
+
+						MemberDump child;
+						child.against = against;
+						child.prefix = childPrefix.c_str();
+						child.depth = depth + 1;
+						clip.VisitMembers(&child);
 					}
 				};
 
-				logger::info("DrawMapBorder: enumerating the local map menu root's members -");
+				logger::info("DrawMapBorder: measuring every display object on the map root, one level deep -");
+				logger::info("  (looking for 838.7x492.3, aspect 1.704 - the plate measured from a screenshot)");
 				MemberDump visitor;
+				visitor.against = &root;
+				visitor.prefix = "root member: ";
 				root.VisitMembers(&visitor);
 			}
 		}
 
 		// Names taken from the root member enumeration, not guessed. The first attempt looked for
 		// "LocalMapHolder" because that is what Map.LocalMap declares; the real member is
-		// "LocalMapHolder_mc", and there is a "LocalMapRect" that is a better target still since it
-		// is the map's rectangle rather than its container.
+		// "LocalMapHolder_mc".
 		//
-		// "Background" is tried FIRST despite that. It is the black plate the map is drawn onto,
-		// and that plate is what reads as the edge of the map on screen. "LocalMapRect" is the
-		// 16:9 render area inset within it, so bordering that leaves a black margin outside the
-		// border - the border ends up visibly smaller than the map it is supposed to frame.
-		// The rest are fallbacks for layouts where Background is absent.
-		// Settled by measurement, not by argument. The border test build drew all four of these at
-		// once in different colours; measuring that screenshot's pixels and converting back through
-		// the red rectangle's known root bounds put the black plate at (2.0,1.7)-(798.4,448.3),
-		// aspect 1.784 - which is (0,0)-(800,450) to within the 2-unit stroke width. That is
-		// LocalMapHolder_mc and TextureHolder exactly. LocalMapRect is four units larger on every
-		// side, and Background is far larger still.
+		// NONE of these is the black plate. Measured from a clean screenshot - scanning inward from
+		// the parchment on each side, so nothing drawn inside the plate can truncate the scan - the
+		// plate is (-22.8,-22.3)-(816.0,469.9), 838.7x492.3, aspect 1.704. LocalMapHolder_mc and
+		// LocalMapRect are both ~1.778 and sit inside it; Background is 1.515 and falls outside it.
+		// The plate lies between them and matches nothing on this list.
+		//
+		// An earlier measurement claimed the plate was (0,0)-(800,450) at aspect 1.784. That was
+		// wrong: it found the longest black run on each scan line while the test build's own overlay
+		// rectangles were drawn across the plate, so it measured the gap between two of those
+		// rectangles rather than the plate itself.
+		//
+		// So this list is now only a fallback. The real target is found by measuring every display
+		// object on the root - see the sweep below.
 		constexpr const char* kRectCandidates[] = {
 			"LocalMapHolder_mc",
 			"TextureHolder",
