@@ -206,15 +206,38 @@ namespace LMU
 			}
 		}
 
-		RE::GFxValue holder;
+		// Names taken from the root member enumeration, not guessed. The first attempt looked for
+		// "LocalMapHolder" because that is what Map.LocalMap declares; the real member is
+		// "LocalMapHolder_mc", and there is a "LocalMapRect" that is a better target still since it
+		// is the map's rectangle rather than its container. Tried in order of preference, with the
+		// texture holder and background as fallbacks.
+		constexpr const char* kRectCandidates[] = {
+			"LocalMapRect",
+			"LocalMapHolder_mc",
+			"TextureHolder",
+			"Background",
+		};
 
-		if (!root.GetMember("LocalMapHolder", &holder) || !holder.IsDisplayObject())
+		RE::GFxValue holder;
+		const char* holderName = nullptr;
+
+		for (const char* name : kRectCandidates)
+		{
+			if (root.GetMember(name, &holder) && holder.IsDisplayObject())
+			{
+				holderName = name;
+
+				break;
+			}
+		}
+
+		if (!holderName)
 		{
 			static bool warnedNoHolder = false;
 
 			if (!warnedNoHolder)
 			{
-				logger::warn("DrawMapBorder: could not reach LocalMapHolder; the border cannot be placed");
+				logger::warn("DrawMapBorder: none of the expected map clips are present; the border cannot be placed");
 				warnedNoHolder = true;
 			}
 
@@ -222,7 +245,6 @@ namespace LMU
 
 			return;
 		}
-
 		RE::GFxValue bounds;
 		std::array<RE::GFxValue, 1> against{ root };
 
@@ -232,7 +254,7 @@ namespace LMU
 
 			if (!warnedNoBounds)
 			{
-				logger::warn("DrawMapBorder: getBounds on LocalMapHolder failed; the border cannot be placed");
+				logger::warn("DrawMapBorder: getBounds on {} failed; the border cannot be placed", holderName);
 				warnedNoBounds = true;
 			}
 
@@ -258,7 +280,7 @@ namespace LMU
 			if (left != lastLeft || top != lastTop || right != lastRight || bottom != lastBottom)
 			{
 				lastLeft = left; lastTop = top; lastRight = right; lastBottom = bottom;
-				logger::debug("DrawMapBorder: LocalMapHolder bounds ({},{}) to ({},{})", left, top, right, bottom);
+				logger::debug("DrawMapBorder: {} bounds ({},{}) to ({},{})", holderName, left, top, right, bottom);
 			}
 		}
 		// Untarnished UI's off-white, the same colour the frame reskin uses.
