@@ -138,8 +138,8 @@ namespace settings
 
 			{
 				using namespace mapmenu;
-				localMapColor = Read<bool>(c, "bMapLocalColor:MapMenu", localMapColor);
-				localMapFogOfWar = Read<bool>(c, "bMapLocalFogOfWar:MapMenu", localMapFogOfWar);
+				localMapColor = Read<bool>(c, "bLocalMapColor:MapMenu", localMapColor);
+				localMapFogOfWar = Read<bool>(c, "bLocalMapFogOfWar:MapMenu", localMapFogOfWar);
 				localMapKeyboardPanSpeed = Read<float>(c, "fMapLocalKeyboardPanSpeed:MapMenu", localMapKeyboardPanSpeed);
 				localMapShowEnemyActors = Read<bool>(c, "bMapLocalShowEnemyActors:MapMenu", localMapShowEnemyActors);
 				localMapShowHostileActors = Read<bool>(c, "bMapLocalShowHostileActors:MapMenu", localMapShowHostileActors);
@@ -174,8 +174,8 @@ namespace settings
 
 		{
 			using namespace mapmenu;
-			add("bMapLocalColor:MapMenu", localMapColor);
-			add("bMapLocalFogOfWar:MapMenu", localMapFogOfWar);
+			add("bLocalMapColor:MapMenu", localMapColor);
+			add("bLocalMapFogOfWar:MapMenu", localMapFogOfWar);
 			add("fMapLocalKeyboardPanSpeed:MapMenu", localMapKeyboardPanSpeed);
 			add("bMapLocalShowEnemyActors:MapMenu", localMapShowEnemyActors);
 			add("bMapLocalShowHostileActors:MapMenu", localMapShowHostileActors);
@@ -230,8 +230,8 @@ namespace settings
 
 		ok &= WriteUInt(kDebugSection, "uLogLevel", static_cast<std::uint32_t>(debug::logLevel));
 
-		ok &= WriteBool(kMapMenuSection, "bMapLocalColor", mapmenu::localMapColor);
-		ok &= WriteBool(kMapMenuSection, "bMapLocalFogOfWar", mapmenu::localMapFogOfWar);
+		ok &= WriteBool(kMapMenuSection, "bLocalMapColor", mapmenu::localMapColor);
+		ok &= WriteBool(kMapMenuSection, "bLocalMapFogOfWar", mapmenu::localMapFogOfWar);
 		ok &= WriteFloat(kMapMenuSection, "fMapLocalKeyboardPanSpeed", mapmenu::localMapKeyboardPanSpeed);
 		ok &= WriteBool(kMapMenuSection, "bMapLocalShowEnemyActors", mapmenu::localMapShowEnemyActors);
 		ok &= WriteBool(kMapMenuSection, "bMapLocalShowHostileActors", mapmenu::localMapShowHostileActors);

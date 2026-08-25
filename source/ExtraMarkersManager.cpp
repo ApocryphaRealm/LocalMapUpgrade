@@ -1,6 +1,7 @@
 #include "ExtraMarkersManager.h"
 
 #include "Settings.h"
+#include "utils/Logger.h"
 
 #include "RE/L/LocalMapCamera.h"
 #include "RE/M/MapMenuMarker.h"
@@ -105,11 +106,18 @@ namespace LMU
 
 	void ExtraMarkersManager::AddExtraMarkers(RE::LocalMapMenu& a_localMapMenu)
 	{
+		logger::debug("AddExtraMarkers: enemy={} hostile={} guard={} dead={} teammate={} neutral={}",
+			settings::mapmenu::localMapShowEnemyActors, settings::mapmenu::localMapShowHostileActors,
+			settings::mapmenu::localMapShowGuardActors, settings::mapmenu::localMapShowDeadActors,
+			settings::mapmenu::localMapShowTeammateActors, settings::mapmenu::localMapShowNeutralActors);
+
 		RE::GFxValue extraMarkersData;
 		a_localMapMenu.GetRuntimeData().iconDisplay.GetMember("ExtraMarkerData", &extraMarkersData);
 
 		if (!extraMarkersData.IsArray())
 		{
+			logger::debug("AddExtraMarkers: ExtraMarkerData is not an array (extension not ready?) - no markers added");
+
 			return;
 		}
 
@@ -119,8 +127,20 @@ namespace LMU
 
 		RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
 		RE::BSTArray<RE::ActorHandle>& actorHandles = RE::ProcessLists::GetSingleton()->highActorHandles;
+
+		logger::debug("AddExtraMarkers: scanning {} nearby actor handle(s)", actorHandles.size());
+
 		RE::BSTArray<RE::ActorHandle>& enemyHandles = REL::Module::IsVR() ? player->GetVRInfoRuntimeData()->actorsToDisplayOnTheHUDArray :
 																			player->GetInfoRuntimeData().actorsToDisplayOnTheHUDArray;
+
+		std::uint32_t addedCount = 0;
+		std::uint32_t skippedBySettingCount = 0;
+
+		auto addMarker = [&](RE::ActorHandle& a_handle, RE::Actor* a_actor, ExtraMarker::Type a_type) {
+			AddExtraMarker(a_handle, a_actor, mapMarkers);
+			extraMarkersData.PushBack(a_type);
+			++addedCount;
+		};
 
 		for (RE::ActorHandle& actorHandle : actorHandles)
 		{
@@ -138,8 +158,11 @@ namespace LMU
 						{
 							if (settings::mapmenu::localMapShowDeadActors)
 							{
-								AddExtraMarker(actorHandle, actor, mapMarkers);
-								extraMarkersData.PushBack(ExtraMarker::Type::kDead);
+								addMarker(actorHandle, actor, ExtraMarker::Type::kDead);
+							}
+							else
+							{
+								++skippedBySettingCount;
 							}
 						}
 					}
@@ -167,8 +190,11 @@ namespace LMU
 						{
 							if (settings::mapmenu::localMapShowEnemyActors)
 							{
-								AddExtraMarker(actorHandle, actor, mapMarkers);
-								extraMarkersData.PushBack(ExtraMarker::Type::kEnemy);
+								addMarker(actorHandle, actor, ExtraMarker::Type::kEnemy);
+							}
+							else
+							{
+								++skippedBySettingCount;
 							}
 						}
 						else
@@ -177,32 +203,44 @@ namespace LMU
 							{
 								if (settings::mapmenu::localMapShowTeammateActors)
 								{
-									AddExtraMarker(actorHandle, actor, mapMarkers);
-									extraMarkersData.PushBack(ExtraMarker::Type::kTeammate);
+									addMarker(actorHandle, actor, ExtraMarker::Type::kTeammate);
+								}
+								else
+								{
+									++skippedBySettingCount;
 								}
 							}
 							else if (actor->IsHostileToActor(player))
 							{
 								if (settings::mapmenu::localMapShowHostileActors)
 								{
-									AddExtraMarker(actorHandle, actor, mapMarkers);
-									extraMarkersData.PushBack(ExtraMarker::Type::kHostile);
+									addMarker(actorHandle, actor, ExtraMarker::Type::kHostile);
+								}
+								else
+								{
+									++skippedBySettingCount;
 								}
 							}
 							else if (actor->IsGuard())
 							{
 								if (settings::mapmenu::localMapShowGuardActors)
 								{
-									AddExtraMarker(actorHandle, actor, mapMarkers);
-									extraMarkersData.PushBack(ExtraMarker::Type::kGuard);
+									addMarker(actorHandle, actor, ExtraMarker::Type::kGuard);
+								}
+								else
+								{
+									++skippedBySettingCount;
 								}
 							}
 							else
 							{
 								if (settings::mapmenu::localMapShowNeutralActors)
 								{
-									AddExtraMarker(actorHandle, actor, mapMarkers);
-									extraMarkersData.PushBack(ExtraMarker::Type::kNeutral);
+									addMarker(actorHandle, actor, ExtraMarker::Type::kNeutral);
+								}
+								else
+								{
+									++skippedBySettingCount;
 								}
 							}
 						}
@@ -210,6 +248,8 @@ namespace LMU
 				}
 			}
 		}
+
+		logger::debug("AddExtraMarkers: added {} marker(s), {} skipped by a visibility setting", addedCount, skippedBySettingCount);
 	}
 
 	void ExtraMarkersManager::PostCreateMarkers(RE::GFxValue& a_iconDisplay)

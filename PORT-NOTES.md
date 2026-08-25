@@ -1,6 +1,6 @@
 # Port notes — INI-only settings → SKSE Menu Framework
 
-**Version 3.1.2.** This is a fork of
+**Version 3.1.3.** This is a fork of
 [alexsylex/LocalMapUpgrade](https://github.com/alexsylex/LocalMapUpgrade) 3.1.0 that adds an
 in-game settings page driven by
 [SKSE Menu Framework 3](https://github.com/QTR-Modding/SKSE-Menu-Framework-3), so the local
@@ -91,6 +91,35 @@ own marker-list rebuild (`RE::LocalMapMenu`). Dragon's Eye Minimap has no actor-
 rendering of its own at all - it only ever mirrors the local map's rendering style (color, fog
 of war, shape), never its marker icons. Making the minimap show actor markers would be new
 functionality built into Dragon's Eye Minimap itself, not a fix to this port.
+
+### The INI key mismatch fixed in 3.1.3
+
+While investigating a follow-up report that the actor-visibility toggles had no effect even on
+the Local Map screen with matching actors confirmed nearby, cross-checking every key string in
+`Settings.cpp` against the real shipped `LocalMapUpgrade.ini` found that this port had been
+reading and writing Color and Fog of war under the wrong names the whole time:
+`"bMapLocalColor:MapMenu"`/`"bMapLocalFogOfWar:MapMenu"` instead of the real
+`"bLocalMapColor:MapMenu"`/`"bLocalMapFogOfWar:MapMenu"` upstream actually uses (the six
+show-actor keys and everything else were already correct - this typo was scoped to just those
+two). Every other key in the file was cross-checked against the shipped INI and all ten now
+match exactly.
+
+This didn't cause the color/minimap bug above and wasn't visible during ordinary menu use,
+since toggling a checkbox changes the in-memory `settings::mapmenu::*` value directly and never
+touches the INI mid-session. Its actual effect: `Init()` silently ignored whatever value a
+player's own `LocalMapUpgrade.ini` had for Color/Fog of war (falling back to the compiled
+default instead, which happens to also be "on" for both, so nothing looked wrong), and `Save()`
+wrote a new, wrong key into the INI rather than updating the real one, leaving the genuine key
+untouched. Fixed by correcting both key names in `Init()`/`ReadFromCollection()`/`Save()`.
+
+This still doesn't explain the actor-marker report by itself, since those six keys were already
+correct. `ExtraMarkersManager::AddExtraMarkers` (`source/ExtraMarkersManager.cpp`) now logs at
+debug level: the current value of all six visibility settings on every call, whether
+`ExtraMarkerData` came back as a Scaleform array at all (an early return if not - if this is
+ever the culprit, the log will say so directly), how many nearby actor handles were scanned,
+and a final added-vs-skipped-by-setting count. If the toggles still have no effect after 3.1.3,
+set Log level to Debug in the settings page, reproduce it near a matching actor, and read
+`LocalMapUpgrade.log` for these lines.
 
 ## Building
 
