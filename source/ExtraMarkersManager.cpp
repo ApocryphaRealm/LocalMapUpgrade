@@ -512,10 +512,63 @@ namespace LMU
 			draw("lineTo", a_left, a_top);
 		};
 
+		// Expand the measured clip out to the black plate.
+		//
+		// The plate is not a display object. A sweep of every member of the map root, one level
+		// deep, found nothing matching it: LocalMapHolder_mc, TextureHolder and LocalMapRect are all
+		// ~800x450 at aspect 1.778 and sit inside it, Background is 915.9x604.6 at 1.515 and falls
+		// outside it, and Background's only child has bounds identical to Background. So there is no
+		// clip to measure and no fifth name to try.
+		//
+		// the author's suggestion is what this does instead: treat the stage as a coordinate graph, anchor
+		// to a known point, and size out from it. Two screenshots measured independently agree on
+		// where the plate is:
+		//
+		//   plate   (-22.8,-22.3)-(815.6,469.5)   838.3 x 491.9   aspect 1.704
+		//   centre  (396.4,223.6)                 stage centre (400,225)
+		//
+		// The plate is centred on the stage, and 1.048 x 1.093 times its size - it deliberately
+		// bleeds past the nominal stage on every side, which is ordinary practice for backdrop art
+		// that must not show a seam at the screen edge.
+		//
+		// Anchoring from the CENTRE rather than from the origin, and scaling a measured clip rather
+		// than hardcoding 800x450, is what makes this hold up. Scaleform renders this menu on a
+		// nominal 16:9 stage and scales it uniformly to the screen, so stage units are already
+		// resolution-independent - the plate's 1.704 does not track the display's 1.778, which is the
+		// evidence that it is fixed in stage units rather than screen-derived. On a non-16:9 display
+		// Scaleform widens the stage instead of scaling differently: an origin-relative offset drifts
+		// when that happens, a centre-relative one does not. And taking the size from whichever clip
+		// was measured means a UI replacer with different dimensions scales with it rather than
+		// breaking the border outright.
+		constexpr float kPlateScaleX = 1.048F;
+		constexpr float kPlateScaleY = 1.093F;
+
+		const float centreX = (left + right) * 0.5F;
+		const float centreY = (top + bottom) * 0.5F;
+		const float halfW = (right - left) * 0.5F * kPlateScaleX;
+		const float halfH = (bottom - top) * 0.5F * kPlateScaleY;
+
+		const float plateLeft = centreX - halfW;
+		const float plateTop = centreY - halfH;
+		const float plateRight = centreX + halfW;
+		const float plateBottom = centreY + halfH;
+
+		{
+			static bool loggedPlate = false;
+
+			if (!loggedPlate)
+			{
+				loggedPlate = true;
+				logger::info("DrawMapBorder: plate from centre ({},{}) - ({},{}) to ({},{}), {}x{}",
+					centreX, centreY, plateLeft, plateTop, plateRight, plateBottom,
+					plateRight - plateLeft, plateBottom - plateTop);
+			}
+		}
+
 		// Untarnished UI's off-white, the same colour the frame reskin uses.
 		constexpr double kBorderColour = 0xF5F2E9;
 
-		strokeRect(kBorderColour, left, top, right, bottom);
+		strokeRect(kBorderColour, plateLeft, plateTop, plateRight, plateBottom);
 	}
 
 	void ExtraMarkersManager::AddExtraMarkers(RE::LocalMapMenu& a_localMapMenu)
