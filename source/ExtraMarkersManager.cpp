@@ -147,10 +147,59 @@ namespace LMU
 			}
 		}
 
-		const float left = a_localMapMenu.topLeft.x;
-		const float top = a_localMapMenu.topLeft.y;
-		const float right = a_localMapMenu.bottomRight.x;
-		const float bottom = a_localMapMenu.bottomRight.y;
+		// Measure the clip the map is actually drawn into, rather than computing a rectangle.
+		//
+		// The first attempt used LocalMapMenu's own topLeft/bottomRight. Those are the map's
+		// *local* extents, not menu coordinates - the author's log had them at (600,325)-(2600,1450) and
+		// (2747,22)-(3229,505) against a 1280x720 stage, so the border drew far off to the
+		// bottom-right. Dragon's Eye Minimap needs a whole SetLocalMapExtents conversion to turn
+		// those into screen space, which is the clue that they were never the right input here.
+		//
+		// getBounds on the holder clip, measured against the same parent the border is drawn on,
+		// needs no conversion and follows the map wherever the game puts it.
+		RE::GFxValue holder;
+
+		if (!root.GetMember("LocalMapHolder", &holder) || !holder.IsDisplayObject())
+		{
+			static bool warnedNoHolder = false;
+
+			if (!warnedNoHolder)
+			{
+				logger::warn("DrawMapBorder: could not reach LocalMapHolder; the border cannot be placed");
+				warnedNoHolder = true;
+			}
+
+			border.Invoke("clear");
+
+			return;
+		}
+
+		RE::GFxValue bounds;
+		std::array<RE::GFxValue, 1> against{ root };
+
+		if (!holder.Invoke("getBounds", &bounds, against.data(), against.size()) || !bounds.IsObject())
+		{
+			static bool warnedNoBounds = false;
+
+			if (!warnedNoBounds)
+			{
+				logger::warn("DrawMapBorder: getBounds on LocalMapHolder failed; the border cannot be placed");
+				warnedNoBounds = true;
+			}
+
+			return;
+		}
+
+		RE::GFxValue xMin, xMax, yMin, yMax;
+		bounds.GetMember("xMin", &xMin);
+		bounds.GetMember("xMax", &xMax);
+		bounds.GetMember("yMin", &yMin);
+		bounds.GetMember("yMax", &yMax);
+
+		const float left = static_cast<float>(xMin.GetNumber());
+		const float top = static_cast<float>(yMin.GetNumber());
+		const float right = static_cast<float>(xMax.GetNumber());
+		const float bottom = static_cast<float>(yMax.GetNumber());
 
 		// Runs every frame the map is open, so log only when the rectangle actually moves
 		// (CLAUDE.md rule 14). These are the numbers to check first if the border lands wrong.
@@ -160,10 +209,9 @@ namespace LMU
 			if (left != lastLeft || top != lastTop || right != lastRight || bottom != lastBottom)
 			{
 				lastLeft = left; lastTop = top; lastRight = right; lastBottom = bottom;
-				logger::debug("DrawMapBorder: rect ({},{}) to ({},{})", left, top, right, bottom);
+				logger::debug("DrawMapBorder: LocalMapHolder bounds ({},{}) to ({},{})", left, top, right, bottom);
 			}
 		}
-
 		// Untarnished UI's off-white, the same colour the frame reskin uses.
 		constexpr double kBorderColour = 0xF5F2E9;
 		constexpr double kBorderThickness = 2.0;
