@@ -104,6 +104,89 @@ namespace LMU
 		a_mapMarkers.push_back(mapMarker);
 	}
 
+	void ExtraMarkersManager::DrawMapBorder(RE::LocalMapMenu& a_localMapMenu)
+	{
+		RE::GFxValue& root = a_localMapMenu.GetRuntimeData().root;
+
+		if (!root.IsDisplayObject())
+		{
+			return;
+		}
+
+		RE::GFxValue border;
+		const bool exists = root.GetMember("LMUMapBorder", &border) && border.IsDisplayObject();
+
+		if (!settings::mapmenu::localMapBorder)
+		{
+			// Turned off - wipe whatever was drawn rather than leaving it on screen. Cheap, and
+			// it makes the toggle apply live like every other setting in this mod.
+			if (exists)
+			{
+				border.Invoke("clear");
+			}
+
+			return;
+		}
+
+		if (!exists)
+		{
+			// A high depth so the border sits above the map and its markers rather than under them.
+			std::array<RE::GFxValue, 2> create{ RE::GFxValue{ "LMUMapBorder" }, RE::GFxValue{ 10000.0 } };
+
+			if (!root.Invoke("createEmptyMovieClip", &border, create.data(), create.size()) || !border.IsDisplayObject())
+			{
+				static bool warnedNoClip = false;
+
+				if (!warnedNoClip)
+				{
+					logger::warn("DrawMapBorder: could not create the border clip; the map border will not be drawn");
+					warnedNoClip = true;
+				}
+
+				return;
+			}
+		}
+
+		const float left = a_localMapMenu.topLeft.x;
+		const float top = a_localMapMenu.topLeft.y;
+		const float right = a_localMapMenu.bottomRight.x;
+		const float bottom = a_localMapMenu.bottomRight.y;
+
+		// Runs every frame the map is open, so log only when the rectangle actually moves
+		// (CLAUDE.md rule 14). These are the numbers to check first if the border lands wrong.
+		{
+			static float lastLeft = 0.0F, lastTop = 0.0F, lastRight = 0.0F, lastBottom = 0.0F;
+
+			if (left != lastLeft || top != lastTop || right != lastRight || bottom != lastBottom)
+			{
+				lastLeft = left; lastTop = top; lastRight = right; lastBottom = bottom;
+				logger::debug("DrawMapBorder: rect ({},{}) to ({},{})", left, top, right, bottom);
+			}
+		}
+
+		// Untarnished UI's off-white, the same colour the frame reskin uses.
+		constexpr double kBorderColour = 0xF5F2E9;
+		constexpr double kBorderThickness = 2.0;
+		constexpr double kBorderAlpha = 100.0;
+
+		border.Invoke("clear");
+
+		std::array<RE::GFxValue, 3> style{ RE::GFxValue{ kBorderThickness }, RE::GFxValue{ kBorderColour },
+										   RE::GFxValue{ kBorderAlpha } };
+		(void)border.Invoke("lineStyle", nullptr, style.data(), style.size());
+
+		auto draw = [&](const char* a_call, float a_x, float a_y) {
+			std::array<RE::GFxValue, 2> point{ RE::GFxValue{ static_cast<double>(a_x) }, RE::GFxValue{ static_cast<double>(a_y) } };
+			(void)border.Invoke(a_call, nullptr, point.data(), point.size());
+		};
+
+		draw("moveTo", left, top);
+		draw("lineTo", right, top);
+		draw("lineTo", right, bottom);
+		draw("lineTo", left, bottom);
+		draw("lineTo", left, top);
+	}
+
 	void ExtraMarkersManager::AddExtraMarkers(RE::LocalMapMenu& a_localMapMenu)
 	{
 		// Runs every frame the local map is open. CLAUDE.md rule 14's one hard constraint is that
@@ -130,6 +213,8 @@ namespace LMU
 							  std::get<7>(state), std::get<8>(state), std::get<9>(state));
 			}
 		}
+
+		DrawMapBorder(a_localMapMenu);
 
 		RE::GFxValue extraMarkersData;
 		a_localMapMenu.GetRuntimeData().iconDisplay.GetMember("ExtraMarkerData", &extraMarkersData);

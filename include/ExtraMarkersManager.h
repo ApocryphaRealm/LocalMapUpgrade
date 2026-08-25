@@ -55,6 +55,12 @@ namespace LMU
 
 		void AddExtraMarkers(RE::LocalMapMenu& a_localMapMenu);
 
+		// Draws a thin border around the local map's rectangle, in Untarnished UI's off-white,
+		// when bLocalMapBorder is on. The rectangle comes from LocalMapMenu's own topLeft and
+		// bottomRight, so it tracks the map wherever the game puts it rather than being a fixed
+		// shape in the artwork - which is why this is here and not in the SWF.
+		void DrawMapBorder(RE::LocalMapMenu& a_localMapMenu);
+
 		void PostCreateMarkers(RE::GFxValue& a_iconDisplay);
 
 		std::uint32_t GetAliveActorsDisplayRadius() const { return aliveActorsDisplayRadius / feetToUnits; }

@@ -45,5 +45,10 @@ namespace settings
 		inline bool localMapShowTeammateActors = true;
 		inline bool localMapShowNeutralActors = true;
 		inline bool localMapShowActorsOnlyWithDetectSpell = false;
+
+		// Draws a thin border around the local map's rectangle, in Untarnished UI's off-white.
+		// Off by default - it is a deliberate visual change, not something to impose on someone
+		// who just wants the map improvements.
+		inline bool localMapBorder = false;
 	}
 }

@@ -33,6 +33,7 @@ namespace settings
 			bool localMapShowTeammateActors;
 			bool localMapShowNeutralActors;
 			bool localMapShowActorsOnlyWithDetectSpell;
+			bool localMapBorder;
 		};
 
 		Defaults defaults;
@@ -51,6 +52,7 @@ namespace settings
 			defaults.localMapShowTeammateActors = mapmenu::localMapShowTeammateActors;
 			defaults.localMapShowNeutralActors = mapmenu::localMapShowNeutralActors;
 			defaults.localMapShowActorsOnlyWithDetectSpell = mapmenu::localMapShowActorsOnlyWithDetectSpell;
+			defaults.localMapBorder = mapmenu::localMapBorder;
 		}
 
 		// One key a Save() is about to write. Queued rather than written on the spot so the
@@ -373,6 +375,7 @@ namespace settings
 				localMapShowTeammateActors = Read<bool>(c, "bMapLocalShowTeammateActors:MapMenu", localMapShowTeammateActors);
 				localMapShowNeutralActors = Read<bool>(c, "bMapLocalShowNeutralActors:MapMenu", localMapShowNeutralActors);
 				localMapShowActorsOnlyWithDetectSpell = Read<bool>(c, "bImmersiveMode:MapMenu", localMapShowActorsOnlyWithDetectSpell);
+				localMapBorder = Read<bool>(c, "bLocalMapBorder:MapMenu", localMapBorder);
 			}
 		}
 	}
@@ -409,6 +412,7 @@ namespace settings
 			add("bMapLocalShowTeammateActors:MapMenu", localMapShowTeammateActors);
 			add("bMapLocalShowNeutralActors:MapMenu", localMapShowNeutralActors);
 			add("bImmersiveMode:MapMenu", localMapShowActorsOnlyWithDetectSpell);
+			add("bLocalMapBorder:MapMenu", localMapBorder);
 		}
 
 		if (!iniSettingCollection->ReadFromFile(a_iniFileName))
@@ -469,6 +473,7 @@ namespace settings
 		ok &= WriteBool(kMapMenuSection, "bMapLocalShowTeammateActors", mapmenu::localMapShowTeammateActors);
 		ok &= WriteBool(kMapMenuSection, "bMapLocalShowNeutralActors", mapmenu::localMapShowNeutralActors);
 		ok &= WriteBool(kMapMenuSection, "bImmersiveMode", mapmenu::localMapShowActorsOnlyWithDetectSpell);
+		ok &= WriteBool(kMapMenuSection, "bLocalMapBorder", mapmenu::localMapBorder);
 
 		// Write the file once, with every queued key applied. Until this succeeds nothing has
 		// reached disk, so its result - not the queueing above - decides whether Save() worked.
@@ -502,6 +507,7 @@ namespace settings
 		mapmenu::localMapShowTeammateActors = defaults.localMapShowTeammateActors;
 		mapmenu::localMapShowNeutralActors = defaults.localMapShowNeutralActors;
 		mapmenu::localMapShowActorsOnlyWithDetectSpell = defaults.localMapShowActorsOnlyWithDetectSpell;
+		mapmenu::localMapBorder = defaults.localMapBorder;
 	}
 
 	const std::string& GetIniPath() { return iniPath; }

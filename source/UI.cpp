@@ -132,7 +132,10 @@ namespace UI
 					extraMarkersManager->SetImmersiveMode(mapmenu::localMapShowActorsOnlyWithDetectSpell);
 				}
 			}
-			HelpMarker("Only shows actor markers on the local map while a detect life/dead effect is active, instead of always. Ships on by default - turn it off to always see actor markers.");
+			HelpMarker("Only shows actor markers on the local map while a detect life/dead effect is active, instead of always. Ships off by default - turn it on if you want markers gated behind a detect effect.");
+
+			ImGuiMCP::Checkbox("Map border", &mapmenu::localMapBorder);
+			HelpMarker("Draws a thin off-white border around the local map, matching Untarnished UI's palette. Off by default. Applies live - no need to reopen the map.");
 		}
 
 		void RenderDebugSection()
