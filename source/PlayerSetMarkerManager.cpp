@@ -215,14 +215,22 @@ namespace LMU
 
 					// Only if the map menu is open. Make sure because someone maybe makes a minimap mod.
 					auto mapMenu = RE::UI::GetSingleton()->GetMenu<RE::MapMenu>().get();
-					RE::BSTArray<RE::MapMenuMarker>& mapMenuMarkers = REL::Module::IsVR() ? mapMenu->GetVRRuntimeData2()->mapMarkers :
-																							mapMenu->GetRuntimeData2()->mapMarkers;
-
-					AddPlayerMapMarkerToMap(mapMenuMarkers);
-
-					if (REL::Module::IsVR())
+					if (mapMenu)
 					{
-						RE::MapMenu__SetMarkers(mapMenu);
+						RE::BSTArray<RE::MapMenuMarker>& mapMenuMarkers = REL::Module::IsVR() ? mapMenu->GetVRRuntimeData2()->mapMarkers :
+																								mapMenu->GetRuntimeData2()->mapMarkers;
+
+						AddPlayerMapMarkerToMap(mapMenuMarkers);
+
+						if (REL::Module::IsVR())
+						{
+							RE::MapMenu__SetMarkers(mapMenu);
+						}
+					}
+					else
+					{
+						logger::warn("MapMenu is not open; skipping the on-screen marker update (a minimap-only "
+									 "replacement may have kept it closed)");
 					}
 				}
 			}
@@ -244,7 +252,14 @@ namespace LMU
 			if (REL::Module::IsVR())
 			{
 				auto mapMenu = RE::UI::GetSingleton()->GetMenu<RE::MapMenu>().get();
-				RE::MapMenu__SetMarkers(mapMenu);
+				if (mapMenu)
+				{
+					RE::MapMenu__SetMarkers(mapMenu);
+				}
+				else
+				{
+					logger::warn("MapMenu is not open; skipping marker refresh after removing the marker");
+				}
 			}
 			break;
 		default: // Leave
@@ -254,16 +269,23 @@ namespace LMU
 		if (REL::Module::IsVR())
 		{
 			auto messageBoxMenu = RE::UI::GetSingleton()->GetMenu<RE::MessageBoxMenu>().get();
+			RE::GFxMovieView* movie = messageBoxMenu ? messageBoxMenu->uiMovie.get() : nullptr;
 
-			RE::GFxMovieView* movie = messageBoxMenu->uiMovie.get();
-
-			RE::GFxValue messageMenu;
-			if (movie->GetVariable(&messageMenu, "MessageMenu"))
+			if (movie)
 			{
-				RE::GFxValue y;
-				messageMenu.GetMember("_y", &y);
-				messageMenu.SetMember("_y", y.GetNumber() + 280.0F);
+				RE::GFxValue messageMenu;
+				if (movie->GetVariable(&messageMenu, "MessageMenu"))
+				{
+					RE::GFxValue y;
+					messageMenu.GetMember("_y", &y);
+					messageMenu.SetMember("_y", y.GetNumber() + 280.0F);
 
+				}
+			}
+			else
+			{
+				logger::warn("MessageBoxMenu (or its movie) is not available; skipping the VR message box "
+							 "reposition");
 			}
 		}
 	}
@@ -285,16 +307,23 @@ namespace LMU
 			if (REL::Module::IsVR())
 			{
 				auto messageBoxMenu = RE::UI::GetSingleton()->GetMenu<RE::MessageBoxMenu>().get();
+				RE::GFxMovieView* movie = messageBoxMenu ? messageBoxMenu->uiMovie.get() : nullptr;
 
-				RE::GFxMovieView* movie = messageBoxMenu->uiMovie.get();
-
-				RE::GFxValue messageMenu;
-				if (movie->GetVariable(&messageMenu, "MessageMenu"))
+				if (movie)
 				{
-					RE::GFxValue y;
-					messageMenu.GetMember("_y", &y);
-					messageMenu.SetMember("_y", y.GetNumber() - 280.0F);
+					RE::GFxValue messageMenu;
+					if (movie->GetVariable(&messageMenu, "MessageMenu"))
+					{
+						RE::GFxValue y;
+						messageMenu.GetMember("_y", &y);
+						messageMenu.SetMember("_y", y.GetNumber() - 280.0F);
 
+					}
+				}
+				else
+				{
+					logger::warn("MessageBoxMenu (or its movie) is not available; skipping the VR message box "
+								 "reposition");
 				}
 			}
 		}

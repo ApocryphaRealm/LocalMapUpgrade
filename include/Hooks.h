@@ -1,5 +1,6 @@
 #pragma once
 
+#include "utils/Logger.h"
 #include "utils/Trampoline.h"
 
 namespace RE
@@ -182,7 +183,19 @@ namespace hooks
 
 		ShaderReferenceEffect::DetachImpl = ShaderReferenceEffect::vTable.write_vfunc(0x3E, DetachShaderReferenceEffect);
 
-		RE::SCRIPT_FUNCTION* tfow = RE::SCRIPT_FUNCTION::LocateConsoleCommand("ToggleFogOfWar");
-		tfow->executeFunction = &ToggleFogOfWar;
+		// LocateConsoleCommand returns null when the name is not a registered console command
+		// (renamed/removed in a future game version, or a typo here). The console is reachable
+		// from the main menu, well before any of this plugin's own systems finish initializing,
+		// so this lookup failing is a plausible way to hit a null dereference - leave the
+		// vanilla "tfow" command alone instead of crashing if it ever comes back null.
+		if (RE::SCRIPT_FUNCTION* tfow = RE::SCRIPT_FUNCTION::LocateConsoleCommand("ToggleFogOfWar"))
+		{
+			tfow->executeFunction = &ToggleFogOfWar;
+		}
+		else
+		{
+			logger::error("Console command \"ToggleFogOfWar\" not found; the local map fog-of-war "
+						 "toggle will not be hooked up");
+		}
 	}
 }

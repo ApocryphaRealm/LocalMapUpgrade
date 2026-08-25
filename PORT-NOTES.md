@@ -1,6 +1,6 @@
 # Port notes — INI-only settings → SKSE Menu Framework
 
-**Version 3.1.4.** This is a fork of
+**Version 3.1.5.** This is a fork of
 [alexsylex/LocalMapUpgrade](https://github.com/alexsylex/LocalMapUpgrade) 3.1.0 that adds an
 in-game settings page driven by
 [SKSE Menu Framework 3](https://github.com/QTR-Modding/SKSE-Menu-Framework-3), so the local
@@ -158,6 +158,30 @@ visible on sight next time rather than needing another investigation round-trip.
 If actor markers still don't show after 3.1.4, the first thing to check is simply whether
 Immersive mode is on and no Detect Life/Dead effect is active - that is the mod's designed
 behavior, not a bug.
+
+## 3.1.5: null-safety audit (preventative, no known crash in this mod)
+
+Standing rule now (`CLAUDE.md` rule 14): every mod in this project gets audited for
+unchecked null-dereference lookups, not just Dragon's Eye Minimap where the pattern actually
+crashed. Five real instances fixed here:
+
+- `include/PlayerSetMarkerManager.h` - `RE::GameSettingCollection::GetSetting(...)->data.s`
+  dereferenced 4x unchecked, the exact collection/pattern class that crashed the sibling mod.
+  Added a `detail::GetGMSTString()` helper (mirrors `Settings.cpp`'s `Read<T>` pattern) with
+  a fallback string and `logger::warn` on a miss.
+- `source/PlayerSetMarkerManager.cpp` - four `RE::UI::GetSingleton()->GetMenu<T>().get()`
+  results (`MapMenu` x2, `MessageBoxMenu` x2) dereferenced unconditionally.
+- `include/Hooks.h`/`source/Hooks.cpp` - the `ToggleFogOfWar` console command hook's
+  `RE::SCRIPT_FUNCTION::LocateConsoleCommand(...)` result, and its own call into
+  `ShaderManager::GetSingleton()`, were both unchecked even though `UI.cpp` already guards
+  every other call to that same singleton for the identical pre-`kDataLoaded` timing reason.
+- `source/ShaderManager.cpp` - `pixelShaderBlob` was used after a `D3DCompile` failure
+  (which leaves it null); `RE::BSGraphics::Renderer::GetSingleton()` and its `forwarder`
+  device were dereferenced before `CreatePixelShader` with no check.
+
+No known crash was ever reported for any of these in this mod specifically - this pass is
+preventative, following the same reasoning that caught the sibling mod's real bug: "this
+pattern is already used elsewhere without incident" is not proof it's safe.
 
 ## Building
 

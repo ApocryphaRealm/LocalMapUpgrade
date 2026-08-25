@@ -87,13 +87,23 @@ namespace LMU
 			{
 				logger::critical("{}", static_cast<LPCSTR>(errorBlob->GetBufferPointer()));
 			}
-		}
-		else
-		{
-			logger::debug("Pixel shader succesfully compiled.");
+
+			// D3DCompile leaves pixelShaderBlob null on failure. Reading its buffer below would
+			// be a null dereference on top of the compile failure already logged above.
+			return nullptr;
 		}
 
-		REX::W32::ID3D11Device* device = RE::BSGraphics::Renderer::GetSingleton()->GetRuntimeData().forwarder;
+		logger::debug("Pixel shader succesfully compiled.");
+
+		RE::BSGraphics::Renderer* renderer = RE::BSGraphics::Renderer::GetSingleton();
+		REX::W32::ID3D11Device* device = renderer ? renderer->GetRuntimeData().forwarder : nullptr;
+
+		if (!device)
+		{
+			logger::critical("D3D11 device is not available; cannot create the pixel shader");
+
+			return nullptr;
+		}
 
 		REX::W32::ID3D11PixelShader* pixelShaderProgram = nullptr;
 

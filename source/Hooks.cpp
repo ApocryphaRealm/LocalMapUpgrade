@@ -371,7 +371,18 @@ bool ToggleFogOfWar(const RE::SCRIPT_PARAMETER* a_paramInfo, RE::SCRIPT_FUNCTION
 					RE::TESObjectREFR* a_thisObj, RE::TESObjectREFR* a_containingObj, RE::Script* a_scriptObj,
 					RE::ScriptLocals* a_locals, double& a_result, std::uint32_t& a_opcodeOffsetPtr)
 {
-	LMU::ShaderManager::GetSingleton()->ToggleFogOfWarLocalMapShader();
-	
+	// The console (and this command) is reachable from the main menu, before kDataLoaded has
+	// fired and ShaderManager::InitSingleton() has run - unlike UI.cpp's settings menu, which
+	// already guards every ShaderManager::GetSingleton() call for the same reason, this one
+	// did not. A console user hitting that window is a real, reachable path, not a hypothetical.
+	if (auto* shaderManager = LMU::ShaderManager::GetSingleton())
+	{
+		shaderManager->ToggleFogOfWarLocalMapShader();
+	}
+	else
+	{
+		logger::warn("ShaderManager is not initialized yet; ignoring ToggleFogOfWar");
+	}
+
 	return true;
 }
