@@ -106,13 +106,30 @@ namespace LMU
 
 	void ExtraMarkersManager::AddExtraMarkers(RE::LocalMapMenu& a_localMapMenu)
 	{
-		logger::debug("AddExtraMarkers: enemy={} hostile={} guard={} dead={} teammate={} neutral={} immersive={} "
-					 "(radii ft - alive={} undead={} dead={})",
-			settings::mapmenu::localMapShowEnemyActors, settings::mapmenu::localMapShowHostileActors,
-			settings::mapmenu::localMapShowGuardActors, settings::mapmenu::localMapShowDeadActors,
-			settings::mapmenu::localMapShowTeammateActors, settings::mapmenu::localMapShowNeutralActors,
-			settings::mapmenu::localMapShowActorsOnlyWithDetectSpell,
-			GetAliveActorsDisplayRadius(), GetUndeadActorsDisplayRadius(), GetDeadActorsDisplayRadius());
+		// Runs every frame the local map is open. CLAUDE.md rule 14's one hard constraint is that
+		// nothing here logs unconditionally - and since rule 14 now also has every mod shipping at
+		// trace, the log level will not save us either. Log the configuration only when it changes.
+		{
+			const auto state = std::make_tuple(
+				settings::mapmenu::localMapShowEnemyActors, settings::mapmenu::localMapShowHostileActors,
+				settings::mapmenu::localMapShowGuardActors, settings::mapmenu::localMapShowDeadActors,
+				settings::mapmenu::localMapShowTeammateActors, settings::mapmenu::localMapShowNeutralActors,
+				settings::mapmenu::localMapShowActorsOnlyWithDetectSpell,
+				GetAliveActorsDisplayRadius(), GetUndeadActorsDisplayRadius(), GetDeadActorsDisplayRadius());
+
+			static std::optional<std::remove_const_t<decltype(state)>> lastLogged;
+
+			if (!lastLogged || *lastLogged != state)
+			{
+				lastLogged = state;
+
+				logger::debug("AddExtraMarkers: enemy={} hostile={} guard={} dead={} teammate={} neutral={} immersive={} "
+							  "(radii ft - alive={} undead={} dead={})",
+							  std::get<0>(state), std::get<1>(state), std::get<2>(state), std::get<3>(state),
+							  std::get<4>(state), std::get<5>(state), std::get<6>(state),
+							  std::get<7>(state), std::get<8>(state), std::get<9>(state));
+			}
+		}
 
 		RE::GFxValue extraMarkersData;
 		a_localMapMenu.GetRuntimeData().iconDisplay.GetMember("ExtraMarkerData", &extraMarkersData);
@@ -131,7 +148,12 @@ namespace LMU
 		RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
 		RE::BSTArray<RE::ActorHandle>& actorHandles = RE::ProcessLists::GetSingleton()->highActorHandles;
 
-		logger::debug("AddExtraMarkers: scanning {} nearby actor handle(s)", actorHandles.size());
+		static std::size_t lastLoggedHandleCount = static_cast<std::size_t>(-1);
+		if (actorHandles.size() != lastLoggedHandleCount)
+		{
+			lastLoggedHandleCount = actorHandles.size();
+			logger::debug("AddExtraMarkers: scanning {} nearby actor handle(s)", actorHandles.size());
+		}
 
 		RE::BSTArray<RE::ActorHandle>& enemyHandles = REL::Module::IsVR() ? player->GetVRInfoRuntimeData()->actorsToDisplayOnTheHUDArray :
 																			player->GetInfoRuntimeData().actorsToDisplayOnTheHUDArray;
@@ -252,7 +274,14 @@ namespace LMU
 			}
 		}
 
-		logger::debug("AddExtraMarkers: added {} marker(s), {} skipped by a visibility setting", addedCount, skippedBySettingCount);
+		static std::uint32_t lastLoggedAdded = static_cast<std::uint32_t>(-1);
+		static std::uint32_t lastLoggedSkipped = static_cast<std::uint32_t>(-1);
+		if (addedCount != lastLoggedAdded || skippedBySettingCount != lastLoggedSkipped)
+		{
+			lastLoggedAdded = addedCount;
+			lastLoggedSkipped = skippedBySettingCount;
+			logger::debug("AddExtraMarkers: added {} marker(s), {} skipped by a visibility setting", addedCount, skippedBySettingCount);
+		}
 	}
 
 	void ExtraMarkersManager::PostCreateMarkers(RE::GFxValue& a_iconDisplay)
