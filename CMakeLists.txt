@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.21)
 
 project(
 	LocalMapUpgrade
-	VERSION 3.1.6
+	VERSION 1.0.6
 	LANGUAGES CXX
 )
 
