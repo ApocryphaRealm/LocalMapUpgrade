@@ -106,10 +106,13 @@ namespace LMU
 
 	void ExtraMarkersManager::AddExtraMarkers(RE::LocalMapMenu& a_localMapMenu)
 	{
-		logger::debug("AddExtraMarkers: enemy={} hostile={} guard={} dead={} teammate={} neutral={}",
+		logger::debug("AddExtraMarkers: enemy={} hostile={} guard={} dead={} teammate={} neutral={} immersive={} "
+					 "(radii ft - alive={} undead={} dead={})",
 			settings::mapmenu::localMapShowEnemyActors, settings::mapmenu::localMapShowHostileActors,
 			settings::mapmenu::localMapShowGuardActors, settings::mapmenu::localMapShowDeadActors,
-			settings::mapmenu::localMapShowTeammateActors, settings::mapmenu::localMapShowNeutralActors);
+			settings::mapmenu::localMapShowTeammateActors, settings::mapmenu::localMapShowNeutralActors,
+			settings::mapmenu::localMapShowActorsOnlyWithDetectSpell,
+			GetAliveActorsDisplayRadius(), GetUndeadActorsDisplayRadius(), GetDeadActorsDisplayRadius());
 
 		RE::GFxValue extraMarkersData;
 		a_localMapMenu.GetRuntimeData().iconDisplay.GetMember("ExtraMarkerData", &extraMarkersData);

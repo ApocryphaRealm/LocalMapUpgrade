@@ -2,6 +2,7 @@
 
 #include "SKSEMenuFramework.h"
 
+#include "ExtraMarkersManager.h"
 #include "ShaderManager.h"
 #include "Settings.h"
 
@@ -124,8 +125,14 @@ namespace UI
 			ImGuiMCP::Checkbox("Show teammate actors", &mapmenu::localMapShowTeammateActors);
 			ImGuiMCP::Checkbox("Show neutral actors", &mapmenu::localMapShowNeutralActors);
 
-			ImGuiMCP::Checkbox("Immersive mode", &mapmenu::localMapShowActorsOnlyWithDetectSpell);
-			HelpMarker("Only shows actor markers on the local map while a detect life/dead effect is active, instead of always.");
+			if (ImGuiMCP::Checkbox("Immersive mode", &mapmenu::localMapShowActorsOnlyWithDetectSpell))
+			{
+				if (auto* extraMarkersManager = LMU::ExtraMarkersManager::GetSingleton())
+				{
+					extraMarkersManager->SetImmersiveMode(mapmenu::localMapShowActorsOnlyWithDetectSpell);
+				}
+			}
+			HelpMarker("Only shows actor markers on the local map while a detect life/dead effect is active, instead of always. Ships on by default - turn it off to always see actor markers.");
 		}
 
 		void RenderDebugSection()
@@ -222,6 +229,11 @@ namespace UI
 	void ApplyLiveSettings()
 	{
 		logger::set_level(settings::debug::logLevel, settings::debug::logLevel);
+
+		if (auto* extraMarkersManager = LMU::ExtraMarkersManager::GetSingleton())
+		{
+			extraMarkersManager->SetImmersiveMode(settings::mapmenu::localMapShowActorsOnlyWithDetectSpell);
+		}
 
 		OnMainThread([]() {
 			if (auto* shaderManager = LMU::ShaderManager::GetSingleton())

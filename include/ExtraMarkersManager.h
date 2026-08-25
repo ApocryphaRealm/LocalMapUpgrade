@@ -65,6 +65,23 @@ namespace LMU
 		void SetUndeadActorsDisplayRadius(std::uint32_t a_radius) { undeadActorsDisplayRadius = a_radius * feetToUnits; }
 		void SetDeadActorsDisplayRadius(std::uint32_t a_radius) { deadActorsDisplayRadius = a_radius * feetToUnits; }
 
+		// Mirrors the ternary the three radii above are constructed with (0 when immersive mode
+		// is on, so no actor is ever in range until a Detect Life/Dead effect grows it back;
+		// unlimited when it's off). The constructor only runs that ternary once, at
+		// kDataLoaded - after settings::Init() has already read bImmersiveMode from the INI, so
+		// changing the setting later (the settings menu, Reload, Restore Defaults) needs this to
+		// actually take effect instead of leaving whatever radius the constructor captured.
+		// Goes straight to the raw game-unit members rather than through the feet-based setters
+		// above, since std::numeric_limits<std::uint32_t>::max() * feetToUnits would overflow.
+		void SetImmersiveMode(bool a_enabled)
+		{
+			std::uint32_t radius = a_enabled ? 0 : std::numeric_limits<std::uint32_t>::max();
+
+			aliveActorsDisplayRadius = radius;
+			undeadActorsDisplayRadius = radius;
+			deadActorsDisplayRadius = radius;
+		}
+
 	private:
 		static void AddExtraMarker(RE::ActorHandle& a_actorHandle, RE::Actor* actor, RE::BSTArray<RE::MapMenuMarker>& a_mapMarkers);
 

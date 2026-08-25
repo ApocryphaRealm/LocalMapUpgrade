@@ -1,6 +1,6 @@
 # Port notes — INI-only settings → SKSE Menu Framework
 
-**Version 3.1.3.** This is a fork of
+**Version 3.1.4.** This is a fork of
 [alexsylex/LocalMapUpgrade](https://github.com/alexsylex/LocalMapUpgrade) 3.1.0 that adds an
 in-game settings page driven by
 [SKSE Menu Framework 3](https://github.com/QTR-Modding/SKSE-Menu-Framework-3), so the local
@@ -117,9 +117,47 @@ correct. `ExtraMarkersManager::AddExtraMarkers` (`source/ExtraMarkersManager.cpp
 debug level: the current value of all six visibility settings on every call, whether
 `ExtraMarkerData` came back as a Scaleform array at all (an early return if not - if this is
 ever the culprit, the log will say so directly), how many nearby actor handles were scanned,
-and a final added-vs-skipped-by-setting count. If the toggles still have no effect after 3.1.3,
-set Log level to Debug in the settings page, reproduce it near a matching actor, and read
-`LocalMapUpgrade.log` for these lines.
+and a final added-vs-skipped-by-setting count.
+
+### The immersive-mode radius bug found and fixed in 3.1.4
+
+the author's debug log (retested per the 3.1.3 request above) was the key piece of evidence: 20
+nearby actor handles scanned, 0 markers added, **0 skipped by a visibility setting** - meaning
+every single actor was rejected before ever reaching the enemy/hostile/guard/dead/teammate/
+neutral checks at all. That points at the distance gate in front of those checks:
+`aliveActorsDisplayRadius`/`undeadActorsDisplayRadius`/`deadActorsDisplayRadius` in
+`ExtraMarkersManager`.
+
+Those three are set once, by a member initializer:
+`settings::mapmenu::localMapShowActorsOnlyWithDetectSpell ? 0 : max()`. The shipped
+`LocalMapUpgrade.ini` ships `bImmersiveMode=1` (on) - that's an intentional upstream design
+choice, not a bug, meant to keep actor markers from trivializing detection ("For those who
+think that this mod is a little OP and want more immersion", per the INI's own comment): with
+it on, every radius is 0 until a Detect Life/Dead effect (a spell, or the Aura Whisper shout)
+temporarily grows it, via hooks already in `Hooks.cpp` (`DetectLifeEffectUpdate`,
+`ScriptEffectUpdate`, `DetachShaderReferenceEffect`). With the shipped default, no actor is
+ever in range unless that spell is actively running - fully explaining "0 skipped by a
+visibility setting": nothing ever got that far.
+
+`ExtraMarkersManager::InitSingleton()` runs on `kDataLoaded`
+(`source/MessageListeners.cpp`), which is well after `settings::Init()` already ran in
+`SKSEPluginLoad` - so the member initializer captures the *already-loaded* INI value, and this
+part was always correct as pure startup behavior. The actual bug: the settings menu's
+"Immersive mode" checkbox only ever flipped the `settings::mapmenu::localMapShowActorsOnlyWithDetectSpell`
+bool - nothing told `ExtraMarkersManager` to recompute its cached radii, so once construction
+had captured 0, toggling the checkbox off in the menu did nothing observable; the radii stayed
+at 0 (or whatever a since-ended spell effect had last left them at) for the rest of the
+session. Fixed by adding `ExtraMarkersManager::SetImmersiveMode(bool)`, which reproduces the
+same 0-or-unlimited ternary the constructor uses (writing the raw game-unit members directly,
+not through the feet-based public setters, since `max() * feetToUnits` would overflow), and
+calling it from the settings page's checkbox handler and from `UI::ApplyLiveSettings()` (so
+Reload and Restore Defaults pick it up too). The debug log line for `AddExtraMarkers` now also
+prints the immersive-mode flag and all three current radii in feet, so this class of issue is
+visible on sight next time rather than needing another investigation round-trip.
+
+If actor markers still don't show after 3.1.4, the first thing to check is simply whether
+Immersive mode is on and no Detect Life/Dead effect is active - that is the mod's designed
+behavior, not a bug.
 
 ## Building
 
