@@ -118,8 +118,34 @@ namespace LMU
 		// upstream's PlayerSetMarkerManager already guards the same way, with the comment "Only if
 		// the map menu is open. Make sure because someone maybe makes a minimap mod." That advice
 		// was already in this codebase and should have been followed here first time.
-		if (!RE::UI::GetSingleton()->GetMenu<RE::MapMenu>().get())
+		// Instance-exact, not just "is a map menu open somewhere".
+		//
+		// AddExtraMarkers runs against EVERY RE::LocalMapMenu in the process, and Dragon's Eye
+		// Minimap allocates one of its own for the minimap. Testing only that the map menu is open
+		// let both instances through the moment the player opened the full map while the minimap
+		// was also ticking - the 1.1.3 symptom, narrowed but not eliminated. MapMenu owns its
+		// LocalMapMenu as a direct member, so comparing addresses answers exactly the right
+		// question: is THIS the map screen's own map?
+		const auto mapMenu = RE::UI::GetSingleton()->GetMenu<RE::MapMenu>();
+
+		if (!mapMenu)
 		{
+			return;
+		}
+
+		const auto* mapMenuRuntime = mapMenu->GetRuntimeData();
+
+		if (!mapMenuRuntime || &a_localMapMenu != &mapMenuRuntime->localMapMenu)
+		{
+			static bool loggedOtherInstance = false;
+
+			if (!loggedOtherInstance)
+			{
+				loggedOtherInstance = true;
+				logger::debug("DrawMapBorder: skipping a LocalMapMenu that is not the map screen's own "
+							  "(almost certainly a minimap mod's instance)");
+			}
+
 			return;
 		}
 
@@ -148,7 +174,23 @@ namespace LMU
 		if (!exists)
 		{
 			// A high depth so the border sits above the map and its markers rather than under them.
-			std::array<RE::GFxValue, 2> create{ RE::GFxValue{ "LMUMapBorder" }, RE::GFxValue{ 10000.0 } };
+			// Ask for a free depth rather than naming one. In ActionScript 2 createEmptyMovieClip
+			// at an occupied depth DESTROYS whatever is there, and 10000 was a guess - never checked
+			// against the member enumeration this very function performs. A UI replacer with
+			// anything at root depth 10000 would have lost it silently on every map open.
+			RE::GFxValue nextDepth;
+			double depth = 10000.0;
+
+			if (root.Invoke("getNextHighestDepth", &nextDepth) && nextDepth.IsNumber())
+			{
+				depth = nextDepth.GetNumber();
+			}
+			else
+			{
+				logger::warn("DrawMapBorder: getNextHighestDepth failed; falling back to depth 10000");
+			}
+
+			std::array<RE::GFxValue, 2> create{ RE::GFxValue{ "LMUMapBorder" }, RE::GFxValue{ depth } };
 
 			if (!root.Invoke("createEmptyMovieClip", &border, create.data(), create.size()) || !border.IsDisplayObject())
 			{
@@ -540,11 +582,20 @@ namespace LMU
 		// when that happens, a centre-relative one does not. And taking the size from whichever clip
 		// was measured means a UI replacer with different dimensions scales with it rather than
 		// breaking the border outright.
-		constexpr float kPlateScaleX = 1.048F;
-		constexpr float kPlateScaleY = 1.093F;
+		constexpr float kPlateScaleX = 1.0481F;
+		constexpr float kPlateScaleY = 1.0936F;
 
-		const float centreX = (left + right) * 0.5F;
-		const float centreY = (top + bottom) * 0.5F;
+		// The plate is very slightly off the stage centre, and consistently so - two independently
+		// measured screenshots put it at (396.6,223.8) and (396.4,223.6) against a stage centre of
+		// (400,225). Left uncorrected that showed as a thin band of black outside the border on the
+		// left and top edges only, with none on the right or bottom: about 9px and 4px at 3200x1800,
+		// which is exactly the 3.5 and 1.3 units below. Expressed as a fraction of the measured clip
+		// so it scales with everything else rather than being a pixel constant.
+		constexpr float kPlateCentreOffsetX = -0.0044F;
+		constexpr float kPlateCentreOffsetY = -0.0029F;
+
+		const float centreX = (left + right) * 0.5F + (right - left) * kPlateCentreOffsetX;
+		const float centreY = (top + bottom) * 0.5F + (bottom - top) * kPlateCentreOffsetY;
 		const float halfW = (right - left) * 0.5F * kPlateScaleX;
 		const float halfH = (bottom - top) * 0.5F * kPlateScaleY;
 
