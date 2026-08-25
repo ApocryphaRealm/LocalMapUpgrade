@@ -30,7 +30,7 @@ namespace settings
 
 	namespace debug
 	{
-		inline logger::level logLevel = logger::level::debug;
+		inline logger::level logLevel = logger::level::trace;
 	}
 
 	namespace mapmenu
