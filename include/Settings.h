@@ -44,6 +44,6 @@ namespace settings
 		inline bool localMapShowDeadActors = true;
 		inline bool localMapShowTeammateActors = true;
 		inline bool localMapShowNeutralActors = true;
-		inline bool localMapShowActorsOnlyWithDetectSpell = false;
+		inline bool localMapShowActorsOnlyWithDetectSpell = true;
 	}
 }
