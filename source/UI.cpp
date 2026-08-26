@@ -9,11 +9,16 @@
 #include "utils/Logger.h"
 #include "utils/Toggle.h"
 
+#include <algorithm>
+
 namespace UI
 {
 	namespace
 	{
 		std::string statusMessage;
+
+		// The slider the arrow keys currently drive. Set by clicking one.
+		std::string selectedSlider;
 
 		constexpr const char* kLogLevelNames[] = { "Trace", "Debug", "Info", "Warning", "Error", "Critical", "Off" };
 		constexpr int kLogLevelCount = 7;
@@ -47,6 +52,11 @@ namespace UI
 				"igCheckbox",
 				"igCombo_Str_arr",
 				"igSliderFloat",
+				// Needed by NudgeableSlider's arrow-key nudge (ported from Dragon's Eye
+				// Minimap's UI.cpp - CLAUDE.md rule 24).
+				"igIsKeyPressed_Bool",
+				"igIsItemClicked",
+				"igIsItemActive",
 				"igIsItemHovered",
 				"igButton",
 				"igSameLine",
@@ -76,6 +86,47 @@ namespace UI
 			}
 
 			return true;
+		}
+
+		// A slider that the arrow keys can also nudge, once it has been clicked. Dragging is
+		// hopeless for the last decimal place, and the framework does not turn on ImGui's own
+		// keyboard navigation, so this tracks the selection itself rather than changing a
+		// setting shared with every other mod's page. Ported verbatim from Dragon's Eye
+		// Minimap's UI.cpp, which already had this working - see CLAUDE.md rule 24.
+		bool NudgeableSlider(const char* a_label, float* a_value, float a_min, float a_max,
+							 const char* a_format, float a_step)
+		{
+			bool changed = ImGuiMCP::SliderFloat(a_label, a_value, a_min, a_max, a_format);
+
+			if (ImGuiMCP::IsItemClicked() || ImGuiMCP::IsItemActive())
+			{
+				selectedSlider = a_label;
+			}
+
+			if (selectedSlider == a_label)
+			{
+				float nudge = 0.0F;
+
+				if (ImGuiMCP::IsKeyPressed(ImGuiMCP::ImGuiKey_LeftArrow))
+				{
+					nudge -= a_step;
+				}
+				if (ImGuiMCP::IsKeyPressed(ImGuiMCP::ImGuiKey_RightArrow))
+				{
+					nudge += a_step;
+				}
+
+				if (nudge != 0.0F)
+				{
+					*a_value = std::clamp(*a_value + nudge, a_min, a_max);
+					changed = true;
+				}
+
+				ImGuiMCP::SameLine();
+				ImGuiMCP::TextDisabled("<-->");
+			}
+
+			return changed;
 		}
 
 		void HelpMarker(const char* a_description)
@@ -123,7 +174,7 @@ namespace UI
 			}
 			HelpMarker("Whether unexplored parts of the local map stay hidden. Disabling reveals the whole map.");
 
-			ImGuiMCP::SliderFloat("Keyboard pan speed", &mapmenu::localMapKeyboardPanSpeed, 5.0F, 300.0F, "%.0f");
+			NudgeableSlider("Keyboard pan speed", &mapmenu::localMapKeyboardPanSpeed, 5.0F, 300.0F, "%.0f", 1.0F);
 			HelpMarker("How fast the local map pans when panning it with the keyboard.");
 
 			ImGuiMCP::Spacing();
