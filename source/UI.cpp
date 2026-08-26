@@ -7,6 +7,7 @@
 #include "Settings.h"
 
 #include "utils/Logger.h"
+#include "utils/Toggle.h"
 
 namespace UI
 {
@@ -51,7 +52,17 @@ namespace UI
 				"igSameLine",
 				"igSpacing",
 				"igPushItemWidth",
-				"igPopItemWidth"
+				"igPopItemWidth",
+				// Toggle() - the on/off switch every boolean setting now renders as
+				// instead of a tick-box (utils/Toggle.h, CLAUDE.md rule 32).
+				"igGetCursorScreenPos",
+				"igGetWindowDrawList",
+				"igGetFrameHeight",
+				"igInvisibleButton",
+				"igPushID_Str",
+				"igPopID",
+				"ImDrawList_AddRectFilled",
+				"ImDrawList_AddCircleFilled"
 			};
 
 			for (const char* name : required)
@@ -84,7 +95,7 @@ namespace UI
 
 			ImGuiMCP::SeparatorText("Local map");
 
-			if (ImGuiMCP::Checkbox("Color", &mapmenu::localMapColor))
+			if (ImGuiMCP::Toggle("Color", &mapmenu::localMapColor))
 			{
 				OnMainThread([]() {
 					if (auto* shaderManager = LMU::ShaderManager::GetSingleton())
@@ -101,7 +112,7 @@ namespace UI
 			}
 			HelpMarker("Renders the local (dungeon/interior) map in color instead of the vanilla black-and-white.");
 
-			if (ImGuiMCP::Checkbox("Fog of war", &mapmenu::localMapFogOfWar))
+			if (ImGuiMCP::Toggle("Fog of war", &mapmenu::localMapFogOfWar))
 			{
 				OnMainThread([]() {
 					if (auto* shaderManager = LMU::ShaderManager::GetSingleton())
@@ -118,14 +129,14 @@ namespace UI
 			ImGuiMCP::Spacing();
 			ImGuiMCP::TextDisabled("Actor markers");
 
-			ImGuiMCP::Checkbox("Show enemy actors", &mapmenu::localMapShowEnemyActors);
-			ImGuiMCP::Checkbox("Show hostile actors", &mapmenu::localMapShowHostileActors);
-			ImGuiMCP::Checkbox("Show guard actors", &mapmenu::localMapShowGuardActors);
-			ImGuiMCP::Checkbox("Show dead actors", &mapmenu::localMapShowDeadActors);
-			ImGuiMCP::Checkbox("Show teammate actors", &mapmenu::localMapShowTeammateActors);
-			ImGuiMCP::Checkbox("Show neutral actors", &mapmenu::localMapShowNeutralActors);
+			ImGuiMCP::Toggle("Show enemy actors", &mapmenu::localMapShowEnemyActors);
+			ImGuiMCP::Toggle("Show hostile actors", &mapmenu::localMapShowHostileActors);
+			ImGuiMCP::Toggle("Show guard actors", &mapmenu::localMapShowGuardActors);
+			ImGuiMCP::Toggle("Show dead actors", &mapmenu::localMapShowDeadActors);
+			ImGuiMCP::Toggle("Show teammate actors", &mapmenu::localMapShowTeammateActors);
+			ImGuiMCP::Toggle("Show neutral actors", &mapmenu::localMapShowNeutralActors);
 
-			if (ImGuiMCP::Checkbox("Immersive mode", &mapmenu::localMapShowActorsOnlyWithDetectSpell))
+			if (ImGuiMCP::Toggle("Immersive mode", &mapmenu::localMapShowActorsOnlyWithDetectSpell))
 			{
 				if (auto* extraMarkersManager = LMU::ExtraMarkersManager::GetSingleton())
 				{
@@ -134,7 +145,7 @@ namespace UI
 			}
 			HelpMarker("Only shows actor markers on the local map while a detect life/dead effect is active, instead of always. Ships off by default - turn it on if you want markers gated behind a detect effect.");
 
-			ImGuiMCP::Checkbox("Map border", &mapmenu::localMapBorder);
+			ImGuiMCP::Toggle("Map border", &mapmenu::localMapBorder);
 			HelpMarker("Draws a thin off-white border around the local map, matching Untarnished UI's palette. Off by default. Applies live - no need to reopen the map.");
 		}
 
