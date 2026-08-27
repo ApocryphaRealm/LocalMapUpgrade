@@ -1,6 +1,6 @@
-{
+﻿{
     "name": "local-map-upgrade",
-    "version-string": "3.1.5",
+    "version-string": "1.2.6",
     "description": "",
     "homepage": "https://github.com/alexsylex/LocalMapUpgrade",
     "license": "MIT",
