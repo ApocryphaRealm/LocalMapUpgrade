@@ -1,5 +1,7 @@
 #include "Settings.h"
 
+#include "Diagnostics.h"
+
 #include "ShaderManager.h"
 #include "ExtraMarkersManager.h"
 #include "PlayerSetMarkerManager.h"
@@ -24,12 +26,24 @@ void SKSEMessageListener(SKSE::MessagingInterface::Message* a_msg)
 	// If all plugins have been loaded
 	if (a_msg->type == SKSE::MessagingInterface::kPostLoad)
 	{
+		// DevBenchAPI's own contract: the interface can only be requested once SKSE has sent
+		// kPostLoad, since that's the earliest point every plugin (DevBench included) has had its
+		// own SKSEPluginLoad run. Done before the Infinity UI check below so the hook-install
+		// results recorded during SKSEPluginLoad are queryable even in the sessions where that
+		// check is about to end the process.
+		logger::debug("kPostLoad received; registering live diagnostics with DevBench if present");
+		diagnostics::Init();
+
 		if (SKSE::GetMessagingInterface()->RegisterListener("InfinityUI", InfinityUIMessageListener))
 		{
+			diagnostics::RecordInfinityUIListenerRegistered(true);
+
 			logger::info("Successfully registered for Infinity UI messages!");
 		}
 		else
 		{
+			diagnostics::RecordInfinityUIListenerRegistered(false);
+
 			SKSE::stl::report_and_fail
 			(
 				std::format
@@ -46,18 +60,36 @@ void SKSEMessageListener(SKSE::MessagingInterface::Message* a_msg)
 	else if (a_msg->type == SKSE::MessagingInterface::kDataLoaded) 
 	{
 		LMU::ShaderManager::InitSingleton();
+		diagnostics::RecordShaderManagerInitialized();
 
 		LMU::API::PixelShaderPropertiesHookMessage pixelShaderPropertiesHook;
 		pixelShaderPropertiesHook.SetPixelShaderProperties = &LMU::ShaderManager::SetPixelShaderProperties;
 		pixelShaderPropertiesHook.GetPixelShaderProperties = &LMU::ShaderManager::GetPixelShaderProperties;
 		DispatchMessage(pixelShaderPropertiesHook);
 
+		// Consumers (Dragon's Eye Minimap) only ever receive the two function pointers through
+		// this one dispatch. If it never fires, the minimap behaves exactly as if this mod were
+		// not installed - so record that it did, rather than inferring it from the minimap's
+		// symptoms later.
+		diagnostics::RecordPixelShaderPropertiesHookDispatched();
+
 		LMU::ExtraMarkersManager::InitSingleton();
+		diagnostics::RecordExtraMarkersManagerInitialized();
+
+		// Last retry point - if DevBench still isn't found here, conclude it isn't installed and
+		// say so, rather than staying silent about it forever.
+		diagnostics::Init(/* a_lastAttempt = */ true);
 	}
 	// Once every SKSE plugin (including SKSE Menu Framework itself) has finished loading.
 	else if (a_msg->type == SKSE::MessagingInterface::kPostPostLoad)
 	{
 		UI::Register();
+
+		// Rule-17 retry: a real launch showed devbench's own server can still be finishing
+		// startup a moment after kPostLoad fires, which is early enough to lose the race even
+		// though kPostLoad is DevBenchAPI's own documented earliest-safe point. Cheap no-op if
+		// the kPostLoad attempt already succeeded.
+		diagnostics::Init();
 	}
 }
 
@@ -96,6 +128,8 @@ void InfinityUIMessageListener(SKSE::MessagingInterface::Message* a_msg)
 				if (msg->newInstance._value.obj == iconDisplayExtension._value.obj)
 				{
 					LMU::isIconDisplayExtensionPatched = true;
+
+					diagnostics::RecordIconDisplayExtensionPatched();
 				}
 			}
 			break;

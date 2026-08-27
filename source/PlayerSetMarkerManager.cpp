@@ -1,5 +1,7 @@
 #include "PlayerSetMarkerManager.h"
 
+#include "Diagnostics.h"
+
 #include "RE/L/LocalMapMenu.h"
 #include "RE/N/NiPick.h"
 
@@ -187,10 +189,21 @@ namespace LMU
 
 		RE::NiPoint3 rayOrigin;
 		RE::NiPoint3 rayDir;
-		if (localMapCamera->WindowPointToRay(wndPointX, wndPointY, rayOrigin, rayDir, localMapViewWidth, localMapViewHeight))
+		if (!localMapCamera->WindowPointToRay(wndPointX, wndPointY, rayOrigin, rayDir, localMapViewWidth, localMapViewHeight))
+		{
+			// Each of these three is a silent no-op from in game - the player clicks and nothing
+			// happens - and none of them logged before. Naming which one it was turns "placing a
+			// marker sometimes does nothing" into a single query.
+			diagnostics::RecordPlayerMarkerPlaceFailed("NiCamera::WindowPointToRay failed for the clicked point");
+		}
+		else
 		{
 			RE::NiPoint3 markerPos;
-			if (GetRayCollisionPosition(rayOrigin, rayDir, markerPos))
+			if (!GetRayCollisionPosition(rayOrigin, rayDir, markerPos))
+			{
+				diagnostics::RecordPlayerMarkerPlaceFailed("the ray from the clicked point hit no terrain or object");
+			}
+			else
 			{
 				auto player = RE::PlayerCharacter::GetSingleton();
 				RE::TES* tes = RE::TES::GetSingleton();
@@ -207,9 +220,15 @@ namespace LMU
 				RE::ObjectRefHandle playerMapMarker = REL::Module::IsVR() ? player->GetVRInfoRuntimeData()->playerMapMarker : player->GetInfoRuntimeData().playerMapMarker;
 				RE::PlayerCharacter::TeleportPath* playerMarkerTeleportPath = REL::Module::IsVR() ? player->GetVRInfoRuntimeData()->playerMarkerPath : player->GetInfoRuntimeData().playerMarkerPath;
 
-				if (playerMapMarker && playerMarkerTeleportPath)
+				if (!playerMapMarker || !playerMarkerTeleportPath)
+				{
+					diagnostics::RecordPlayerMarkerPlaceFailed("the player has no map-marker reference or teleport path");
+				}
+				else
 				{
 					RE::PlayerCharacter__SetMarkerTeleportData(player, playerMapMarker.get().get(), playerMarkerTeleportPath, true);
+
+					diagnostics::RecordPlayerMarkerPlaced();
 
 					AddPlayerMapMarkerToMap(a_localMapMenu->mapMarkers);
 
@@ -248,6 +267,8 @@ namespace LMU
 			break;
 		case 2: // Remove
 			RE::PlayerCharacter__RemovePlayerMapMarker(player);
+
+			diagnostics::RecordPlayerMarkerRemoved();
 
 			if (REL::Module::IsVR())
 			{
@@ -301,6 +322,11 @@ namespace LMU
 		if (playerMapMarker)
 		{
 			messageBox.callback->SetData(a_localMapMenu, a_wndPointX, a_wndPointY);
+
+			// A marker already exists, so the click opens the move/leave/remove prompt instead of
+			// placing one. Counting prompts separately from placements is what tells you a click
+			// WAS registered when nothing appeared to move.
+			diagnostics::RecordPlayerMarkerPrompt();
 
 			RE::UI__OpenMessageBox(messageBox.title, messageBox.callback, 0, 25, 4, messageBox.options);
 

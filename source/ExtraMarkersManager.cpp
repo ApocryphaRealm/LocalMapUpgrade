@@ -1,6 +1,7 @@
 #include "ExtraMarkersManager.h"
 #include "RE/M/MapMenu.h"
 
+#include "Diagnostics.h"
 #include "Settings.h"
 #include "utils/Logger.h"
 
@@ -620,6 +621,11 @@ namespace LMU
 		constexpr double kBorderColour = 0xF5F2E9;
 
 		strokeRect(kBorderColour, plateLeft, plateTop, plateRight, plateBottom);
+
+		// Counted, not logged: this runs once per frame the map is open, and rule 14's one hard
+		// constraint is that nothing in here logs unconditionally. A counter that stops advancing
+		// is the cheapest way to see the border stopped being drawn.
+		diagnostics::RecordMapBorderDrawn();
 	}
 
 	void ExtraMarkersManager::AddExtraMarkers(RE::LocalMapMenu& a_localMapMenu)
@@ -656,6 +662,12 @@ namespace LMU
 
 		if (!extraMarkersData.IsArray())
 		{
+			// The single most common "the mod does nothing" cause: Infinity UI has not (or cannot)
+			// put IconDisplayExtension.swf into the local map movie, so there is no array to fill.
+			// A few of these right after the menu opens is normal; a count that keeps climbing
+			// while the map is open is the failure.
+			diagnostics::RecordExtraMarkerDataNotReady();
+
 			logger::debug("AddExtraMarkers: ExtraMarkerData is not an array (extension not ready?) - no markers added");
 
 			return;
@@ -801,6 +813,46 @@ namespace LMU
 			lastLoggedAdded = addedCount;
 			lastLoggedSkipped = skippedBySettingCount;
 			logger::debug("AddExtraMarkers: added {} marker(s), {} skipped by a visibility setting", addedCount, skippedBySettingCount);
+		}
+
+		// Snapshot of the frame just drawn, for the "localmapupgrade.status" DevBench tool. Every
+		// value here was already computed above for this function's own change-only logging, so
+		// the added cost is one uncontended lock and a handful of stores per frame - and only
+		// while the local map is actually open.
+		//
+		// This is also the ONLY place these can be read safely: the camera and the map's extents
+		// belong to the render thread, and the tool's handler runs on devbench's listener thread.
+		// Copying them here is what lets that handler stay a pure snapshot read.
+		{
+			diagnostics::LocalMapFrame frame;
+
+			frame.markersAdded = addedCount;
+			frame.markersSkippedBySetting = skippedBySettingCount;
+			frame.actorHandlesScanned = actorHandles.size();
+			frame.aliveRadiusFeet = GetAliveActorsDisplayRadius();
+			frame.undeadRadiusFeet = GetUndeadActorsDisplayRadius();
+			frame.deadRadiusFeet = GetDeadActorsDisplayRadius();
+			frame.boundsLeft = a_localMapMenu.topLeft.x;
+			frame.boundsTop = a_localMapMenu.topLeft.y;
+			frame.boundsRight = a_localMapMenu.bottomRight.x;
+			frame.boundsBottom = a_localMapMenu.bottomRight.y;
+
+			if (RE::LocalMapCamera* localMapCamera = a_localMapMenu.localCullingProcess.GetLocalMapCamera())
+			{
+				// defaultState is a smart pointer the game populates when the camera starts; it is
+				// legitimately null on the first frames, so this is a check, not a formality.
+				if (RE::LocalMapCamera::DefaultState* defaultState = localMapCamera->defaultState.get())
+				{
+					frame.haveCamera = true;
+					frame.cameraZoom = defaultState->zoom;
+					frame.cameraMinExtentX = localMapCamera->minExtent.x;
+					frame.cameraMinExtentY = localMapCamera->minExtent.y;
+					frame.cameraMaxExtentX = localMapCamera->maxExtent.x;
+					frame.cameraMaxExtentY = localMapCamera->maxExtent.y;
+				}
+			}
+
+			diagnostics::RecordLocalMapFrame(frame);
 		}
 	}
 

@@ -2,6 +2,8 @@
 
 #include "SKSEMenuFramework.h"
 
+#include "Diagnostics.h"
+
 #include "ExtraMarkersManager.h"
 #include "ShaderManager.h"
 #include "Settings.h"
@@ -272,6 +274,11 @@ namespace UI
 	{
 		if (!SKSEMenuFramework::IsInstalled())
 		{
+			// Recorded as "attempted but not registered" rather than left unrecorded: from in
+			// game, a missing settings page and a settings page that failed to draw look the
+			// same, and only one of them is this plugin's problem.
+			diagnostics::RecordSettingsMenuRegistered(false);
+
 			logger::info("SKSE Menu Framework is not installed; settings will be read from the INI only");
 
 			return;
@@ -279,6 +286,8 @@ namespace UI
 
 		if (!HasRequiredExports())
 		{
+			diagnostics::RecordSettingsMenuRegistered(false);
+
 			logger::warn("The installed SKSE Menu Framework is older than this plugin's settings "
 						 "menu needs. Update it to version 3 or newer to configure the local map in game.");
 
@@ -287,6 +296,8 @@ namespace UI
 
 		SKSEMenuFramework::SetSection("Local Map Upgrade");
 		SKSEMenuFramework::AddSectionItem("Settings", SettingsPanel::Render);
+
+		diagnostics::RecordSettingsMenuRegistered(true);
 
 		logger::info("Registered the settings page with SKSE Menu Framework");
 	}

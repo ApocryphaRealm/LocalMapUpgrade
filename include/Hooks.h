@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Diagnostics.h"
+
 #include "utils/Logger.h"
 #include "utils/Trampoline.h"
 
@@ -164,24 +166,41 @@ namespace hooks
 			invokeCreateMarkersHook.getSize()
 		};
 
+		// Each of these returns the ORIGINAL target it displaced - a call address for the
+		// trampoline hooks, the previous vtable entry for the virtual ones. A zero there means
+		// nothing was displaced, i.e. the hook is not live, which from in game looks identical to
+		// "that feature just does nothing". Recording it makes the difference queryable through
+		// the "localmapupgrade.status" DevBench tool instead of only inferable from symptoms.
 		TESWorldSpace::IsSmallWorld = defaultTrampoline.write_call(isSmallWorldHook);
+		diagnostics::RecordHookInstalled(diagnostics::Hook::kIsSmallWorld, TESWorldSpace::IsSmallWorld.address() != 0);
+
 		AddQuestMarkersToMap = defaultTrampoline.write_call(addQuestMarkersToMapHook);
+		diagnostics::RecordHookInstalled(diagnostics::Hook::kAddQuestMarkersToMap, AddQuestMarkersToMap.address() != 0);
+
 		GFxValue::ObjectInterface::Invoke = defaultTrampoline.write_call(invokeCreateMarkersHook);
+		diagnostics::RecordHookInstalled(diagnostics::Hook::kInvokeCreateMarkers, GFxValue::ObjectInterface::Invoke.address() != 0);
 
 		LocalMapMenu::InputHandler::CanProcess = LocalMapMenu::InputHandler::vTable.write_vfunc(1, CanProcess);
-		
+		diagnostics::RecordHookInstalled(diagnostics::Hook::kInputHandlerCanProcess, LocalMapMenu::InputHandler::CanProcess.address() != 0);
+
 		// `LocalMapMenu::InputHandler::ProcessButton` offset in the virtual table changes in VR
 		LocalMapMenu::InputHandler::ProcessButton = LocalMapMenu::InputHandler::vTable.write_vfunc(REL::Module::IsVR() ? 8 : 5, ProcessButton);
+		diagnostics::RecordHookInstalled(diagnostics::Hook::kInputHandlerProcessButton, LocalMapMenu::InputHandler::ProcessButton.address() != 0);
 
 		BSWaterShader::SetupTechnique = BSWaterShader::vTable.write_vfunc(2, &SetupWaterShaderTechnique);
+		diagnostics::RecordHookInstalled(diagnostics::Hook::kWaterShaderSetupTechnique, BSWaterShader::SetupTechnique.address() != 0);
 
 		DetectLifeEffect::Update = DetectLifeEffect::vTable.write_vfunc(4, DetectLifeEffectUpdate);
+		diagnostics::RecordHookInstalled(diagnostics::Hook::kDetectLifeEffectUpdate, DetectLifeEffect::Update.address() != 0);
 
 		ScriptEffect::Update = ScriptEffect::vTable.write_vfunc(4, ScriptEffectUpdate);
+		diagnostics::RecordHookInstalled(diagnostics::Hook::kScriptEffectUpdate, ScriptEffect::Update.address() != 0);
 
 		StopHitEffectsVisitor::Visit = StopHitEffectsVisitor::vTable.write_vfunc(1, VisitStopHitEffects);
+		diagnostics::RecordHookInstalled(diagnostics::Hook::kStopHitEffectsVisit, StopHitEffectsVisitor::Visit.address() != 0);
 
 		ShaderReferenceEffect::DetachImpl = ShaderReferenceEffect::vTable.write_vfunc(0x3E, DetachShaderReferenceEffect);
+		diagnostics::RecordHookInstalled(diagnostics::Hook::kShaderReferenceEffectDetach, ShaderReferenceEffect::DetachImpl.address() != 0);
 
 		// LocateConsoleCommand returns null when the name is not a registered console command
 		// (renamed/removed in a future game version, or a typo here). The console is reachable
@@ -191,9 +210,13 @@ namespace hooks
 		if (RE::SCRIPT_FUNCTION* tfow = RE::SCRIPT_FUNCTION::LocateConsoleCommand("ToggleFogOfWar"))
 		{
 			tfow->executeFunction = &ToggleFogOfWar;
+
+			diagnostics::RecordHookInstalled(diagnostics::Hook::kToggleFogOfWarCommand, true);
 		}
 		else
 		{
+			diagnostics::RecordHookInstalled(diagnostics::Hook::kToggleFogOfWarCommand, false);
+
 			logger::error("Console command \"ToggleFogOfWar\" not found; the local map fog-of-war "
 						 "toggle will not be hooked up");
 		}

@@ -1,5 +1,7 @@
 #include "ShaderManager.h"
 
+#include "Diagnostics.h"
+
 #include "utils/Logger.h"
 
 #include <d3dcompiler.h>
@@ -30,6 +32,8 @@ namespace LMU
 		RE::ImageSpaceEffect* localMapShaderEffect = RE::ImageSpaceManager::GetSingleton()->effects[isLocalMapIndex];
 
 		auto localMapShader = skyrim_cast<RE::BSImagespaceShader*>(localMapShaderEffect);
+
+		diagnostics::RecordLocalMapShaderFound(localMapShader != nullptr);
 
 		if (localMapShader)
 		{
@@ -66,6 +70,24 @@ namespace LMU
 	{
 		static constexpr std::uint32_t compileFlags = D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR;
 
+		// Names the variant being built ("squared black-and-white with fog" is just the one with
+		// no defines at all), so a recorded failure says WHICH of the eight failed rather than
+		// only that one did. Built once per variant at startup - never in a frame.
+		std::string variantName;
+		for (const char* defineName : a_defineNames)
+		{
+			if (!variantName.empty())
+			{
+				variantName += '+';
+			}
+
+			variantName += defineName;
+		}
+		if (variantName.empty())
+		{
+			variantName = "<no defines>";
+		}
+
 		std::vector<D3D_SHADER_MACRO> pixelShaderMacro;
 		pixelShaderMacro.reserve(a_defineNames.size() + 1);
 
@@ -88,6 +110,9 @@ namespace LMU
 				logger::critical("{}", static_cast<LPCSTR>(errorBlob->GetBufferPointer()));
 			}
 
+			diagnostics::RecordPixelShaderVariant(false,
+				std::format("{}: HLSL compilation failed (D3DCompile's own error text is in the log)", variantName));
+
 			// D3DCompile leaves pixelShaderBlob null on failure. Reading its buffer below would
 			// be a null dereference on top of the compile failure already logged above.
 			return nullptr;
@@ -100,6 +125,9 @@ namespace LMU
 
 		if (!device)
 		{
+			diagnostics::RecordPixelShaderVariant(false,
+				std::format("{}: the D3D11 device was not available", variantName));
+
 			logger::critical("D3D11 device is not available; cannot create the pixel shader");
 
 			return nullptr;
@@ -110,10 +138,15 @@ namespace LMU
 		if (FAILED(device->CreatePixelShader(pixelShaderBlob->GetBufferPointer(), pixelShaderBlob->GetBufferSize(),
 			nullptr, &pixelShaderProgram)))
 		{
+			diagnostics::RecordPixelShaderVariant(false,
+				std::format("{}: ID3D11Device::CreatePixelShader failed", variantName));
+
 			logger::critical("Failed to create pixel shader.");
 		}
 		else
 		{
+			diagnostics::RecordPixelShaderVariant(true, {});
+
 			logger::debug("Pixel shader succesfully created.");
 		}
 
@@ -139,6 +172,12 @@ namespace LMU
 
 	void ShaderManager::SetPixelShaderProperties(PixelShaderProperty::Shape a_shape, PixelShaderProperty::Style a_style)
 	{
+		// Dragon's Eye Minimap calls this every frame, so this stays a counter plus three stores
+		// and nothing more - no formatting, no allocation, no game-state reads.
+		diagnostics::RecordPixelShaderPropertiesSet(a_shape == PixelShaderProperty::Shape::kRound,
+													a_style == PixelShaderProperty::Style::kColor,
+													isFogOfWarEnabled);
+
 		PixelShaderGroup& styleShaders = a_shape == PixelShaderProperty::Shape::kRound ? roundShaders : squaredShaders;
 		PixelShaderGroup::FogOfWarGroup& shaders = a_style == PixelShaderProperty::Style::kColor ? styleShaders.color : styleShaders.blackNWhite;
 		localMapPixelShader->shader = isFogOfWarEnabled ? shaders.fogOfWar : shaders.noFogOfWar;
@@ -161,6 +200,11 @@ namespace LMU
 
 	void ShaderManager::GetPixelShaderProperties(PixelShaderProperty::Shape& a_shape, PixelShaderProperty::Style& a_style)
 	{
+		// Counting reads is what separates "no consumer is asking" from "a consumer is asking and
+		// getting an answer it then discards" - the exact ambiguity behind the frozen-style bug
+		// documented in SetPixelShaderProperties above. Same per-frame cost reasoning as there.
+		diagnostics::RecordPixelShaderPropertiesRead();
+
 		a_shape = singleton->shape;
 		a_style = singleton->style;
 	}
