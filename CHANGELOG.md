@@ -23,9 +23,15 @@ reclaimed), **scratch** (a hypothesis-test build that never held a real number).
 >   `rules-version.ps1 -Action bump`. If a number was typed by hand, it is wrong until the tool
 >   agrees.
 
-## 1.2.6 - 2026-08-27 - untested
+## 1.2.6 - 2026-08-31 - working
 
 ### Fixed
+- The settings menu now registers with Apocrypha Menu Framework (AMF), the parallel framework
+  these mods ship with, by resolving AMF's real module name with stock SKSE Menu Framework as
+  the fallback. It previously resolved only the stock name, which AMF's VFS alias deliberately
+  refuses at load - so on an AMF stack the settings page never registered ("SKSE Menu Framework
+  does not export AddSectionItem" in the log) and the menu was silently absent. Same fix as
+  Dragon's Eye Minimap 1.5.8.
 - Settings reloaded after a save could come back as the values from game start rather than the ones just written. Save() writes the INI with plain file I/O, but the reload went back through INISettingCollection::ReadFromFile, which uses the Win32 profile APIs that PrivateProfileRedirector hooks and caches - so the reload was served a cache, and with the Redirector configured to flush that cache back to disk it could also overwrite saved settings between sessions. Settings are now parsed straight from the INI with plain file I/O and preferred over the collection, and the INI is never handed to the profile API in either direction. Same fix as Dragon's Eye Minimap 1.5.7, where the bug was first diagnosed end to end.
 
 ## 1.2.5 - 2026-08-27 - working
