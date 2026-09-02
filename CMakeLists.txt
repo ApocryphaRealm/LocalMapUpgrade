@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.21)
+﻿cmake_minimum_required(VERSION 3.21)
 
 ########################################################################################################################
 ## Define project
@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.21)
 
 project(
 	LocalMapUpgrade
-	VERSION 1.2.6
+	VERSION 1.2.7
 	LANGUAGES CXX
 )
 

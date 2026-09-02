@@ -1,4 +1,8 @@
 #include "ExtraMarkersManager.h"
+
+#include <algorithm>
+#include <cmath>
+#include <set>
 #include "RE/M/MapMenu.h"
 
 #include "Diagnostics.h"
@@ -543,6 +547,11 @@ namespace LMU
 			(void)border.Invoke(a_call, nullptr, point.data(), point.size());
 		};
 
+		auto line = [&](float a_x1, float a_y1, float a_x2, float a_y2) {
+			draw("moveTo", a_x1, a_y1);
+			draw("lineTo", a_x2, a_y2);
+		};
+
 		auto strokeRect = [&](double a_colour, float a_left, float a_top, float a_right, float a_bottom) {
 			std::array<RE::GFxValue, 3> style{ RE::GFxValue{ kBorderThickness }, RE::GFxValue{ a_colour },
 											   RE::GFxValue{ kBorderAlpha } };
@@ -620,7 +629,142 @@ namespace LMU
 		// Untarnished UI's off-white, the same colour the frame reskin uses.
 		constexpr double kBorderColour = 0xF5F2E9;
 
-		strokeRect(kBorderColour, plateLeft, plateTop, plateRight, plateBottom);
+		// THE SKYRIM FRAME - the REAL art, not a drawing of it (the author, 2026-09-01: "all you did
+		// was basically draw lines in the shape of it instead of actually copying it"). The art is
+		// the MO2 "Skyrim" (Trosski) panel frame, the same 78x78 nine-slice the menu framework's
+		// Skyrim theme uses; it ships beside this DLL as three DDS tiles - one corner and the two
+		// edge strips - and Scaleform loads them at runtime through its img:// protocol.
+		//
+		// Eight clips: four corners at the art's own size (mirrored with negative scales, so one
+		// tile serves all four) and four edges stretched along their runs. Loading is asynchronous,
+		// so the geometry is (re)applied every frame the map is open - this function already runs
+		// per frame, and a clip that has not finished loading simply has nothing to place yet.
+		auto placeArtFrame = [&](float a_left, float a_top, float a_right, float a_bottom) -> bool {
+			constexpr float kTile = 26.0F;   // the corner slice, in the art's own pixels
+			constexpr const char* kCorner = "img://textures/interface/apocrypharealm/lmuframe_corner.dds";
+			constexpr const char* kEdgeH = "img://textures/interface/apocrypharealm/lmuframe_edge_h.dds";
+			constexpr const char* kEdgeV = "img://textures/interface/apocrypharealm/lmuframe_edge_v.dds";
+
+			struct Piece
+			{
+				const char* name;
+				const char* image;
+				float x, y;          // where its own top-left sits
+				float w, h;          // how big to draw it
+				float scaleX, scaleY;  // -1 mirrors the tile
+			};
+
+			const float innerW = (a_right - a_left) - 2.0F * kTile;
+			const float innerH = (a_bottom - a_top) - 2.0F * kTile;
+			if (innerW <= 0.0F || innerH <= 0.0F) { return false; }
+
+			const Piece pieces[] = {
+				{ "tl", kCorner, a_left,                 a_top,                  kTile,  kTile,   1.0F,  1.0F },
+				{ "tr", kCorner, a_right,                a_top,                  kTile,  kTile,  -1.0F,  1.0F },
+				{ "bl", kCorner, a_left,                 a_bottom,               kTile,  kTile,   1.0F, -1.0F },
+				{ "br", kCorner, a_right,                a_bottom,               kTile,  kTile,  -1.0F, -1.0F },
+				{ "et", kEdgeH,  a_left + kTile,         a_top,                  innerW, kTile,   1.0F,  1.0F },
+				{ "eb", kEdgeH,  a_left + kTile,         a_bottom,               innerW, kTile,   1.0F, -1.0F },
+				{ "el", kEdgeV,  a_left,                 a_top + kTile,          kTile,  innerH,  1.0F,  1.0F },
+				{ "er", kEdgeV,  a_right,                a_top + kTile,          kTile,  innerH, -1.0F,  1.0F },
+			};
+
+			// Frames elapsed since the clips were made, so an async load is given time to land.
+			static int framesSinceCreate = 0;
+			constexpr int kLoadGraceFrames = 45;   // about three quarters of a second
+			++framesSinceCreate;
+
+			bool allPresent = true;
+			for (const Piece& piece : pieces)
+			{
+				const std::string clipName = std::string("LMUFrame_") + piece.name;
+				RE::GFxValue clip;
+				const bool exists = border.GetMember(clipName.c_str(), &clip) && clip.IsDisplayObject();
+
+				if (!exists)
+				{
+					RE::GFxValue nextDepth;
+					double depth = 1.0;
+					if (border.Invoke("getNextHighestDepth", &nextDepth) && nextDepth.IsNumber()) { depth = nextDepth.GetNumber(); }
+					std::array<RE::GFxValue, 2> create{ RE::GFxValue{ clipName.c_str() }, RE::GFxValue{ depth } };
+					if (!border.Invoke("createEmptyMovieClip", &clip, create.data(), create.size()) || !clip.IsDisplayObject())
+					{
+						allPresent = false;
+						continue;
+					}
+					std::array<RE::GFxValue, 1> load{ RE::GFxValue{ piece.image } };
+					(void)clip.Invoke("loadMovie", nullptr, load.data(), load.size());
+					logger::debug("map frame: created {} and asked for {}", clipName, piece.image);
+					framesSinceCreate = 0;  // a fresh clip restarts the grace period
+				}
+
+				// Position every frame: the map's rectangle can move, and a clip that only just
+				// finished loading needs its size applying after the fact.
+				clip.SetMember("_x", RE::GFxValue{ static_cast<double>(piece.x) });
+				clip.SetMember("_y", RE::GFxValue{ static_cast<double>(piece.y) });
+				clip.SetMember("_width", RE::GFxValue{ static_cast<double>(piece.w * piece.scaleX) });
+				clip.SetMember("_height", RE::GFxValue{ static_cast<double>(piece.h * piece.scaleY) });
+
+				// Did the image actually arrive? Setting a size on a clip with NOTHING in it does not
+				// stick - an empty clip stays 0 wide - so reading the width straight back answers
+				// it without eyes on the screen. But loadMovie is ASYNCHRONOUS: asking in the same
+				// frame the load was requested always says empty, which is exactly the false alarm
+				// the first version of this check raised. So the verdict waits out a grace period
+				// of frames, and until then a bare clip only means "still loading".
+				RE::GFxValue back;
+				if (clip.GetMember("_width", &back) && back.IsNumber())
+				{
+					const bool bare = std::fabs(back.GetNumber()) < 0.5;
+					if (bare && framesSinceCreate < kLoadGraceFrames)
+					{
+						// still on its way - say nothing, draw nothing, ask again next frame
+					}
+					else if (bare)
+					{
+						static std::set<std::string> warned;
+						if (warned.insert(clipName).second)
+						{
+							logger::warn("map frame: {} is still empty {} frames after loadMovie - Scaleform "
+										 "did not take \"{}\"", clipName, framesSinceCreate, piece.image);
+						}
+						allPresent = false;
+					}
+					else
+					{
+						static std::set<std::string> reported;
+						if (reported.insert(clipName).second)
+						{
+							logger::info("map frame: {} carries the art ({:.1f} wide after {} frames)",
+										 clipName, back.GetNumber(), framesSinceCreate);
+						}
+					}
+				}
+			}
+			return allPresent;
+		};
+
+		// Style 0 = Skyrim, the real frame art (the standing rule: every UI element we draw
+		// defaults to the Skyrim knotwork). Style 1 = Untarnished, the plain line. If the art
+		// cannot be placed - a missing texture, or a Scaleform build that will not take img:// -
+		// the plain line is drawn instead, so the border is never simply absent.
+		if (settings::mapmenu::localMapBorderStyle == 0)
+		{
+			if (!placeArtFrame(plateLeft, plateTop, plateRight, plateBottom))
+			{
+				static bool warnedArt = false;
+				if (!warnedArt)
+				{
+					warnedArt = true;
+					logger::warn("map frame: the Skyrim frame art could not be placed; falling back to the plain line. "
+								 "Check textures/interface/apocrypharealm/lmuframe_*.dds are installed.");
+				}
+				strokeRect(kBorderColour, plateLeft, plateTop, plateRight, plateBottom);
+			}
+		}
+		else
+		{
+			strokeRect(kBorderColour, plateLeft, plateTop, plateRight, plateBottom);
+		}
 
 		// Counted, not logged: this runs once per frame the map is open, and rule 14's one hard
 		// constraint is that nothing in here logs unconditionally. A counter that stops advancing

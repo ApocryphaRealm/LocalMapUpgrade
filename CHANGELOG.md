@@ -23,6 +23,29 @@ reclaimed), **scratch** (a hypothesis-test build that never held a real number).
 >   `rules-version.ps1 -Action bump`. If a number was typed by hand, it is wrong until the tool
 >   agrees.
 
+## 1.2.7 - 2026-09-01 - untested
+
+### Added
+- A BORDER STYLE selector on the settings page, shown when the map border is on:
+  - **Skyrim** (the default): the Nordic knotwork frame drawn round the local map. It places the
+    real MO2 "Skyrim" (Trosski) frame art - the same nine-slice the Apocrypha Menu Framework's
+    Skyrim theme uses - shipped beside the plugin as three textures and assembled from eight
+    clips: four corners at the art's own size, mirrored so one tile serves all four, and four
+    edges stretched along their runs. If the art cannot be placed the plain line is drawn
+    instead, so the border is never simply missing.
+  - **Untarnished**: the plain single line in Untarnished UI's off-white, which is what this mod
+    drew before. Available, not the default.
+  Standing rule behind it (the author, 2026-09-01): every UI element we draw defaults to the
+  Skyrim knotwork, with a UI-replacer style offered alongside and the whole element switchable
+  off for anyone on vanilla UI.
+- `localmapupgrade.status` gains op=borderstyle, so the styles can be switched live for testing.
+
+### Note on verification
+The selector and the fallback are confirmed in game. Whether Scaleform loads the frame art at
+runtime is NOT yet confirmed: the border only draws while the map is open, and the headless gate
+cannot reach the local map (spliced keys do not land in a menu's own context). Left untested in
+the ledger until it is seen.
+
 ## 1.2.6 - 2026-08-31 - working
 
 ### Fixed

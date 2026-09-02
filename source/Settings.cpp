@@ -38,6 +38,7 @@ namespace settings
 			bool localMapShowNeutralActors;
 			bool localMapShowActorsOnlyWithDetectSpell;
 			bool localMapBorder;
+			std::uint32_t localMapBorderStyle;
 		};
 
 		Defaults defaults;
@@ -57,6 +58,7 @@ namespace settings
 			defaults.localMapShowNeutralActors = mapmenu::localMapShowNeutralActors;
 			defaults.localMapShowActorsOnlyWithDetectSpell = mapmenu::localMapShowActorsOnlyWithDetectSpell;
 			defaults.localMapBorder = mapmenu::localMapBorder;
+			defaults.localMapBorderStyle = mapmenu::localMapBorderStyle;
 		}
 
 		// One key a Save() is about to write. Queued rather than written on the spot so the
@@ -510,6 +512,7 @@ namespace settings
 				localMapShowNeutralActors = Read<bool>(c, "bMapLocalShowNeutralActors:MapMenu", localMapShowNeutralActors);
 				localMapShowActorsOnlyWithDetectSpell = Read<bool>(c, "bImmersiveMode:MapMenu", localMapShowActorsOnlyWithDetectSpell);
 				localMapBorder = Read<bool>(c, "bLocalMapBorder:MapMenu", localMapBorder);
+				localMapBorderStyle = Read<std::uint32_t>(c, "uLocalMapBorderStyle:MapMenu", localMapBorderStyle);
 			}
 		}
 	}
@@ -547,6 +550,7 @@ namespace settings
 			add("bMapLocalShowNeutralActors:MapMenu", localMapShowNeutralActors);
 			add("bImmersiveMode:MapMenu", localMapShowActorsOnlyWithDetectSpell);
 			add("bLocalMapBorder:MapMenu", localMapBorder);
+			add("uLocalMapBorderStyle:MapMenu", localMapBorderStyle);
 		}
 
 		// DELIBERATELY NOT calling iniSettingCollection->ReadFromFile here.
@@ -621,6 +625,7 @@ namespace settings
 		ok &= WriteBool(kMapMenuSection, "bMapLocalShowNeutralActors", mapmenu::localMapShowNeutralActors);
 		ok &= WriteBool(kMapMenuSection, "bImmersiveMode", mapmenu::localMapShowActorsOnlyWithDetectSpell);
 		ok &= WriteBool(kMapMenuSection, "bLocalMapBorder", mapmenu::localMapBorder);
+		ok &= WriteUInt(kMapMenuSection, "uLocalMapBorderStyle", mapmenu::localMapBorderStyle);
 
 		// Write the file once, with every queued key applied. Until this succeeds nothing has
 		// reached disk, so its result - not the queueing above - decides whether Save() worked.
@@ -655,6 +660,7 @@ namespace settings
 		mapmenu::localMapShowNeutralActors = defaults.localMapShowNeutralActors;
 		mapmenu::localMapShowActorsOnlyWithDetectSpell = defaults.localMapShowActorsOnlyWithDetectSpell;
 		mapmenu::localMapBorder = defaults.localMapBorder;
+		mapmenu::localMapBorderStyle = defaults.localMapBorderStyle;
 	}
 
 	const std::string& GetIniPath() { return iniPath; }

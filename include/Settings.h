@@ -51,5 +51,12 @@ namespace settings
 		// map rather than as an addition, so it is worth showing without being asked for.
 		// Anyone who does not want it can turn it off in the settings menu.
 		inline bool localMapBorder = true;
+		// The FRAME AROUND THE LOCAL MAP is a rectangle this mod draws itself, anchored from the
+		// centre of the stage - there is no map background or frame art in the menu to reskin, so
+		// the style is whatever we stroke (the author, 2026-09-01). 0 = Skyrim (the DEFAULT, and the standing rule for every UI element we draw: the
+		// Nordic double line with a knot at each corner, matching the framework's Skyrim theme),
+		// 1 = Untarnished (the plain single line this mod shipped with). The Skyrim style places
+		// the REAL frame art shipped beside this DLL, not a drawing of it.
+		inline std::uint32_t localMapBorderStyle = 0;
 	}
 }

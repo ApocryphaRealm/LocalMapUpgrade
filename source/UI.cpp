@@ -199,7 +199,19 @@ namespace UI
 			HelpMarker("Only shows actor markers on the local map while a detect life/dead effect is active, instead of always. Ships off by default - turn it on if you want markers gated behind a detect effect.");
 
 			ImGuiMCP::Toggle("Map border", &mapmenu::localMapBorder);
-			HelpMarker("Draws a thin off-white border around the local map, matching Untarnished UI's palette. Off by default. Applies live - no need to reopen the map.");
+			HelpMarker("Draws a border around the local map. Applies live - no need to reopen the map.");
+
+			if (mapmenu::localMapBorder)
+			{
+				static const char* const kBorderStyles[] = { "Skyrim", "Untarnished" };
+				int style = static_cast<int>(mapmenu::localMapBorderStyle);
+				if (style < 0 || style > 1) { style = 0; }
+				if (ImGuiMCP::Combo("Border style", &style, kBorderStyles, 2))
+				{
+					mapmenu::localMapBorderStyle = static_cast<std::uint32_t>(style);
+				}
+				HelpMarker("Skyrim: the knotwork frame - the same Nordic art the menu framework's Skyrim theme uses, drawn round the map. The default. Untarnished: a plain single line in Untarnished UI's off-white.");
+			}
 		}
 
 		void RenderDebugSection()

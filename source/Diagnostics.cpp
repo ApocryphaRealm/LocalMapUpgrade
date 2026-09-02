@@ -413,8 +413,45 @@ namespace diagnostics
 				SecondsAgoField("lastPlaceFailure", state.lastPlayerMarkerPlaceFailure));
 		}
 
-		void StatusTool(void*, const char*, void* a_sink, DevBenchAPI::WriteFn a_write)
+		// Reads "op" and "value" out of the args JSON without pulling in a parser: the strings are
+		// this tool's own, and a driving tool that needed a JSON library to answer one question
+		// would be worse than the question.
+		std::string ArgString(const std::string& a_args, const char* a_key)
 		{
+			const std::string needle = std::string("\"") + a_key + "\"";
+			const auto at = a_args.find(needle);
+			if (at == std::string::npos) { return {}; }
+			const auto colon = a_args.find(':', at + needle.size());
+			if (colon == std::string::npos) { return {}; }
+			auto start = a_args.find_first_not_of(" \t", colon + 1);
+			if (start == std::string::npos) { return {}; }
+			if (a_args[start] == '"')
+			{
+				const auto end = a_args.find('"', start + 1);
+				return end == std::string::npos ? std::string{} : a_args.substr(start + 1, end - start - 1);
+			}
+			const auto end = a_args.find_first_of(",}", start);
+			return a_args.substr(start, (end == std::string::npos ? a_args.size() : end) - start);
+		}
+
+		void StatusTool(void*, const char* a_argsJson, void* a_sink, DevBenchAPI::WriteFn a_write)
+		{
+			// op=borderstyle sets the local map's border style live (0 = knotwork, 1 = plain), which
+			// is what lets both styles be photographed in one game session.
+			const std::string args = a_argsJson ? a_argsJson : "{}";
+			if (ArgString(args, "op") == "borderstyle")
+			{
+				const std::string value = ArgString(args, "value");
+				const std::uint32_t style = (value == "1") ? 1u : 0u;
+				settings::mapmenu::localMapBorderStyle = style;
+				logger::info("DevBench: local map border style -> {}",
+							 style == 0 ? "skyrim (art)" : "untarnished");
+				const std::string reply = std::string("{\"ok\":true,\"op\":\"borderstyle\",\"value\":") +
+										  std::to_string(style) + "}";
+				a_write(a_sink, reply.c_str());
+				return;
+			}
+
 			std::string json;
 
 			{
@@ -477,9 +514,11 @@ namespace diagnostics
 			"installed, whether the custom local-map pixel shader compiled, whether the "
 			"kPixelShaderPropertiesHook API message reached consumers such as Dragon's Eye "
 			"Minimap, and what the last local-map frame drew (markers, screen bounds, camera "
-			"zoom) plus player-set-marker counters.\","
-			"\"inputSchema\":{\"type\":\"object\",\"properties\":{}},"
-			"\"readOnly\":true"
+			"zoom) plus player-set-marker counters. op=borderstyle with value 0 (knotwork) or 1 "
+			"(untarnished) switches the map border's style live.\","
+			"\"inputSchema\":{\"type\":\"object\",\"properties\":{"
+			"\"op\":{\"type\":\"string\"},\"value\":{\"type\":\"string\"}}},"
+			"\"readOnly\":false"
 			"}";
 
 		if (devBench->RegisterTool("localmapupgrade.status", descriptor, &StatusTool, nullptr))
