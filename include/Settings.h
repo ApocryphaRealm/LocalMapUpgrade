@@ -46,11 +46,13 @@ namespace settings
 		inline bool localMapShowNeutralActors = true;
 		inline bool localMapShowActorsOnlyWithDetectSpell = false;
 
-		// Draws a thin border around the local map's rectangle, in Untarnished UI's off-white.
-		// On by default: it frames the map cleanly at any resolution and reads as part of the
-		// map rather than as an addition, so it is worth showing without being asked for.
-		// Anyone who does not want it can turn it off in the settings menu.
-		inline bool localMapBorder = true;
+		// Draws a frame around the local map's rectangle.
+		// OFF by default (the author, 2026-09-01): the game already draws its own frame round the
+		// local map, and most UI replacers draw one too, so switching ours on unasked would stack
+		// a second frame on top of somebody else's. It is a thing you turn ON because you want it -
+		// typically because your replacer removed the vanilla frame - not a thing you have to
+		// discover in order to turn off. One switch on the settings page enables it.
+		inline bool localMapBorder = false;
 		// The FRAME AROUND THE LOCAL MAP is a rectangle this mod draws itself, anchored from the
 		// centre of the stage - there is no map background or frame art in the menu to reskin, so
 		// the style is whatever we stroke (the author, 2026-09-01). 0 = Skyrim (the DEFAULT, and the standing rule for every UI element we draw: the

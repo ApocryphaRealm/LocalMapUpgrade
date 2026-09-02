@@ -40,6 +40,16 @@ reclaimed), **scratch** (a hypothesis-test build that never held a real number).
   off for anyone on vanilla UI.
 - `localmapupgrade.status` gains op=borderstyle, so the styles can be switched live for testing.
 
+### Changed
+- THE MAP BORDER NOW SHIPS OFF (design decision, 2026-09-01). It was on by default from 1.2.5.
+  The game already draws its own frame round the local map and most UI replacers draw one too,
+  so turning ours on unasked stacks a second frame on top of somebody else's - which is a worse
+  first impression than no frame at all. It is now a thing you switch ON because you want it,
+  typically because your replacer removed the vanilla frame. Compiled default, shipped INI, the
+  settings page's own help text and the Nexus page all say the same thing.
+- The shipped INI gained `uLocalMapBorderStyle`, which existed in code from earlier in this
+  version but had no key in the file.
+
 ### Note on verification
 The selector and the fallback are confirmed in game. Whether Scaleform loads the frame art at
 runtime is NOT yet confirmed: the border only draws while the map is open, and the headless gate

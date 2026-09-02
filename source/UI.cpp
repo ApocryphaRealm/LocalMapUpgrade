@@ -199,7 +199,7 @@ namespace UI
 			HelpMarker("Only shows actor markers on the local map while a detect life/dead effect is active, instead of always. Ships off by default - turn it on if you want markers gated behind a detect effect.");
 
 			ImGuiMCP::Toggle("Map border", &mapmenu::localMapBorder);
-			HelpMarker("Draws a border around the local map. Applies live - no need to reopen the map.");
+			HelpMarker("Draws a frame around the local map. OFF by default: the game draws its own frame, and most UI replacers draw one too, so this would otherwise stack a second frame on somebody else's. Turn it on if your replacer removed the vanilla frame, or if you prefer ours. Applies live - no need to reopen the map.");
 
 			if (mapmenu::localMapBorder)
 			{
