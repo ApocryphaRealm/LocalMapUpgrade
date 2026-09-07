@@ -9,9 +9,12 @@
 #include "Settings.h"
 
 #include "utils/Logger.h"
+#include "utils/Strings.h"
 #include "utils/Toggle.h"
 
 #include <algorithm>
+#include <string>
+#include <vector>
 
 namespace UI
 {
@@ -23,6 +26,8 @@ namespace UI
 		std::string selectedSlider;
 
 		constexpr const char* kLogLevelNames[] = { "Trace", "Debug", "Info", "Warning", "Error", "Critical", "Off" };
+		constexpr const char* kLogLevelKeys[] = { "LMU_LogLevel_Trace", "LMU_LogLevel_Debug", "LMU_LogLevel_Info",
+													"LMU_LogLevel_Warning", "LMU_LogLevel_Error", "LMU_LogLevel_Critical", "LMU_LogLevel_Off" };
 		constexpr int kLogLevelCount = 7;
 
 		// The framework renders from the renderer's present hook, which is not the thread
@@ -125,7 +130,7 @@ namespace UI
 				}
 
 				ImGuiMCP::SameLine();
-				ImGuiMCP::TextDisabled("<-->");
+				ImGuiMCP::TextDisabled("%s", strings::TR("LMU_SliderNudge", "<-->"));
 			}
 
 			return changed;
@@ -134,7 +139,7 @@ namespace UI
 		void HelpMarker(const char* a_description)
 		{
 			ImGuiMCP::SameLine();
-			ImGuiMCP::TextDisabled("(?)");
+			ImGuiMCP::TextDisabled("%s", strings::TR("LMU_HelpMark", "(?)"));
 
 			if (ImGuiMCP::IsItemHovered())
 			{
@@ -146,9 +151,9 @@ namespace UI
 		{
 			using namespace settings;
 
-			ImGuiMCP::SeparatorText("Local map");
+			ImGuiMCP::SeparatorText(strings::TR("LMU_Title", "Local map"));
 
-			if (ImGuiMCP::Toggle("Color", &mapmenu::localMapColor))
+			if (ImGuiMCP::Toggle(strings::TR("LMU_Color", "Color"), &mapmenu::localMapColor))
 			{
 				OnMainThread([]() {
 					if (auto* shaderManager = LMU::ShaderManager::GetSingleton())
@@ -163,9 +168,9 @@ namespace UI
 					}
 				});
 			}
-			HelpMarker("Renders the local (dungeon/interior) map in color instead of the vanilla black-and-white.");
+			HelpMarker(strings::TR("LMU_HelpColor", "Renders the local (dungeon/interior) map in color instead of the vanilla black-and-white."));
 
-			if (ImGuiMCP::Toggle("Fog of war", &mapmenu::localMapFogOfWar))
+			if (ImGuiMCP::Toggle(strings::TR("LMU_FogOfWar", "Fog of war"), &mapmenu::localMapFogOfWar))
 			{
 				OnMainThread([]() {
 					if (auto* shaderManager = LMU::ShaderManager::GetSingleton())
@@ -174,43 +179,45 @@ namespace UI
 					}
 				});
 			}
-			HelpMarker("Whether unexplored parts of the local map stay hidden. Disabling reveals the whole map.");
+			HelpMarker(strings::TR("LMU_HelpFogOfWar", "Whether unexplored parts of the local map stay hidden. Disabling reveals the whole map."));
 
-			NudgeableSlider("Keyboard pan speed", &mapmenu::localMapKeyboardPanSpeed, 5.0F, 300.0F, "%.0f", 1.0F);
-			HelpMarker("How fast the local map pans when panning it with the keyboard.");
+			NudgeableSlider(strings::TR("LMU_KeyboardPanSpeed", "Keyboard pan speed"), &mapmenu::localMapKeyboardPanSpeed, 5.0F, 300.0F, "%.0f", 1.0F);
+			HelpMarker(strings::TR("LMU_HelpKeyboardPanSpeed", "How fast the local map pans when panning it with the keyboard."));
 
 			ImGuiMCP::Spacing();
-			ImGuiMCP::TextDisabled("Actor markers");
+			ImGuiMCP::TextDisabled("%s", strings::TR("LMU_ActorMarkers", "Actor markers"));
 
-			ImGuiMCP::Toggle("Show enemy actors", &mapmenu::localMapShowEnemyActors);
-			ImGuiMCP::Toggle("Show hostile actors", &mapmenu::localMapShowHostileActors);
-			ImGuiMCP::Toggle("Show guard actors", &mapmenu::localMapShowGuardActors);
-			ImGuiMCP::Toggle("Show dead actors", &mapmenu::localMapShowDeadActors);
-			ImGuiMCP::Toggle("Show teammate actors", &mapmenu::localMapShowTeammateActors);
-			ImGuiMCP::Toggle("Show neutral actors", &mapmenu::localMapShowNeutralActors);
+			ImGuiMCP::Toggle(strings::TR("LMU_ShowEnemyActors", "Show enemy actors"), &mapmenu::localMapShowEnemyActors);
+			ImGuiMCP::Toggle(strings::TR("LMU_ShowHostileActors", "Show hostile actors"), &mapmenu::localMapShowHostileActors);
+			ImGuiMCP::Toggle(strings::TR("LMU_ShowGuardActors", "Show guard actors"), &mapmenu::localMapShowGuardActors);
+			ImGuiMCP::Toggle(strings::TR("LMU_ShowDeadActors", "Show dead actors"), &mapmenu::localMapShowDeadActors);
+			ImGuiMCP::Toggle(strings::TR("LMU_ShowTeammateActors", "Show teammate actors"), &mapmenu::localMapShowTeammateActors);
+			ImGuiMCP::Toggle(strings::TR("LMU_ShowNeutralActors", "Show neutral actors"), &mapmenu::localMapShowNeutralActors);
 
-			if (ImGuiMCP::Toggle("Immersive mode", &mapmenu::localMapShowActorsOnlyWithDetectSpell))
+			if (ImGuiMCP::Toggle(strings::TR("LMU_ImmersiveMode", "Immersive mode"), &mapmenu::localMapShowActorsOnlyWithDetectSpell))
 			{
 				if (auto* extraMarkersManager = LMU::ExtraMarkersManager::GetSingleton())
 				{
 					extraMarkersManager->SetImmersiveMode(mapmenu::localMapShowActorsOnlyWithDetectSpell);
 				}
 			}
-			HelpMarker("Only shows actor markers on the local map while a detect life/dead effect is active, instead of always. Ships off by default - turn it on if you want markers gated behind a detect effect.");
+			HelpMarker(strings::TR("LMU_HelpImmersiveMode", "Only shows actor markers on the local map while a detect life/dead effect is active, instead of always. Ships off by default - turn it on if you want markers gated behind a detect effect."));
 
-			ImGuiMCP::Toggle("Map border", &mapmenu::localMapBorder);
-			HelpMarker("Draws a frame around the local map. OFF by default: the game draws its own frame, and most UI replacers draw one too, so this would otherwise stack a second frame on somebody else's. Turn it on if your replacer removed the vanilla frame, or if you prefer ours. Applies live - no need to reopen the map.");
+			ImGuiMCP::Toggle(strings::TR("LMU_MapBorder", "Map border"), &mapmenu::localMapBorder);
+			HelpMarker(strings::TR("LMU_HelpMapBorder", "Draws a frame around the local map. OFF by default: the game draws its own frame, and most UI replacers draw one too, so this would otherwise stack a second frame on somebody else's. Turn it on if your replacer removed the vanilla frame, or if you prefer ours. Applies live - no need to reopen the map."));
 
 			if (mapmenu::localMapBorder)
 			{
+				// "Skyrim" and "Untarnished" are art names (and folder identities) - left untranslated,
+				// same as the game's other UI-replacer theme option lists.
 				static const char* const kBorderStyles[] = { "Skyrim", "Untarnished" };
 				int style = static_cast<int>(mapmenu::localMapBorderStyle);
 				if (style < 0 || style > 1) { style = 0; }
-				if (ImGuiMCP::Combo("Border style", &style, kBorderStyles, 2))
+				if (ImGuiMCP::Combo(strings::TR("LMU_BorderStyle", "Border style"), &style, kBorderStyles, 2))
 				{
 					mapmenu::localMapBorderStyle = static_cast<std::uint32_t>(style);
 				}
-				HelpMarker("Skyrim: the knotwork frame - the same Nordic art the menu framework's Skyrim theme uses, drawn round the map. The default. Untarnished: a plain single line in Untarnished UI's off-white.");
+				HelpMarker(strings::TR("LMU_HelpBorderStyle", "Skyrim: the knotwork frame - the same Nordic art the menu framework's Skyrim theme uses, drawn round the map. The default. Untarnished: a plain single line in Untarnished UI's off-white."));
 			}
 		}
 
@@ -218,59 +225,71 @@ namespace UI
 		{
 			using namespace settings;
 
-			ImGuiMCP::SeparatorText("Debug");
+			ImGuiMCP::SeparatorText(strings::TR("LMU_Debug", "Debug"));
 
 			int level = static_cast<int>(debug::logLevel);
-			if (ImGuiMCP::Combo("Log level", &level, kLogLevelNames, kLogLevelCount))
+			// Rebuilt from TR'd entries every frame (plan 2.2); labelStore owns the translated
+			// bytes for this call so the const char* pointers handed to Combo stay valid.
+			std::vector<std::string> logLevelLabelStore;
+			logLevelLabelStore.reserve(kLogLevelCount);
+			for (int i = 0; i < kLogLevelCount; ++i)
+			{
+				logLevelLabelStore.push_back(strings::TR(kLogLevelKeys[i], kLogLevelNames[i]));
+			}
+			std::vector<const char*> logLevelLabels;
+			logLevelLabels.reserve(logLevelLabelStore.size());
+			for (const auto& s : logLevelLabelStore) { logLevelLabels.push_back(s.c_str()); }
+			if (ImGuiMCP::Combo(strings::TR("LMU_LogLevel", "Log level"), &level, logLevelLabels.data(), kLogLevelCount))
 			{
 				debug::logLevel = static_cast<logger::level>(level);
 
 				OnMainThread([]() { logger::set_level(settings::debug::logLevel, settings::debug::logLevel); });
 			}
-			HelpMarker("Applies to the log immediately.");
+			HelpMarker(strings::TR("LMU_HelpLogLevel", "Applies to the log immediately."));
 		}
 
 		void RenderButtons()
 		{
-			if (ImGuiMCP::Button("Save"))
+			if (ImGuiMCP::Button(strings::TR("LMU_SaveBtn", "Save")))
 			{
 				OnMainThread([]() {
-					statusMessage = settings::Save() ? "Settings saved." : "Could not save the INI. See the log for why.";
+					statusMessage = settings::Save() ? strings::TR("LMU_StatusSaved", "Settings saved.")
+													   : strings::TR("LMU_StatusSaveFail", "Could not save the INI. See the log for why.");
 				});
 			}
-			HelpMarker("Writes every setting above back to the INI. Comments and unrelated keys are left alone.");
+			HelpMarker(strings::TR("LMU_HelpSave", "Writes every setting above back to the INI. Comments and unrelated keys are left alone."));
 
 			ImGuiMCP::SameLine();
 
-			if (ImGuiMCP::Button("Reload from INI"))
+			if (ImGuiMCP::Button(strings::TR("LMU_ReloadBtn", "Reload from INI")))
 			{
 				OnMainThread([]() {
 					if (settings::Reload())
 					{
 						ApplyLiveSettings();
 
-						statusMessage = "Settings reloaded from the INI.";
+						statusMessage = strings::TR("LMU_StatusReloaded", "Settings reloaded from the INI.");
 					}
 					else
 					{
-						statusMessage = "Could not read the INI. See the log for why.";
+						statusMessage = strings::TR("LMU_StatusReloadFail", "Could not read the INI. See the log for why.");
 					}
 				});
 			}
-			HelpMarker("Throws away any change made here since the last save and re-reads the INI from disk. Also picks up edits made to the file by hand.");
+			HelpMarker(strings::TR("LMU_HelpReload", "Throws away any change made here since the last save and re-reads the INI from disk. Also picks up edits made to the file by hand."));
 
 			ImGuiMCP::SameLine();
 
-			if (ImGuiMCP::Button("Restore defaults"))
+			if (ImGuiMCP::Button(strings::TR("LMU_RestoreBtn", "Restore defaults")))
 			{
 				OnMainThread([]() {
 					settings::RestoreDefaults();
 					ApplyLiveSettings();
 				});
 
-				statusMessage = "Defaults restored. Press Save to keep them.";
+				statusMessage = strings::TR("LMU_StatusRestored", "Defaults restored. Press Save to keep them.");
 			}
-			HelpMarker("Puts every setting back to the value it has on a fresh install. Nothing is written until you press Save.");
+			HelpMarker(strings::TR("LMU_HelpRestore", "Puts every setting back to the value it has on a fresh install. Nothing is written until you press Save."));
 
 			if (!statusMessage.empty())
 			{
@@ -341,7 +360,9 @@ namespace UI
 
 	void __stdcall SettingsPanel::Render()
 	{
-		ImGuiMCP::TextWrapped("Most settings apply as soon as you make them. Press Save to keep them for the next time you play.");
+		strings::Tick();
+
+		ImGuiMCP::TextWrapped("%s", strings::TR("LMU_Intro", "Most settings apply as soon as you make them. Press Save to keep them for the next time you play."));
 		ImGuiMCP::Spacing();
 
 		ImGuiMCP::PushItemWidth(260.0F);

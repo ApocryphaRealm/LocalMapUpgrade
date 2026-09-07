@@ -11,6 +11,7 @@
 #include "IUI/API.h"
 
 #include "UI.h"
+#include "utils/Strings.h"
 
 const SKSE::LoadInterface* skse;
 
@@ -59,6 +60,8 @@ void SKSEMessageListener(SKSE::MessagingInterface::Message* a_msg)
 	// If the data handler has loaded all its forms
 	else if (a_msg->type == SKSE::MessagingInterface::kDataLoaded) 
 	{
+		strings::Configure("LocalMapUpgrade");
+
 		LMU::ShaderManager::InitSingleton();
 		diagnostics::RecordShaderManagerInitialized();
 

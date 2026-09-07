@@ -23,6 +23,11 @@ reclaimed), **scratch** (a hypothesis-test build that never held a real number).
 >   `rules-version.ps1 -Action bump`. If a number was typed by hand, it is wrong until the tool
 >   agrees.
 
+## 1.2.8 - 2026-09-07 - working
+
+### Added
+- The settings page is shown in the game's language: Japanese, Korean, Chinese, Russian, German, French, Spanish, Italian, Polish and Czech translation files ship beside the DLL (Interface/Translations/LocalMapUpgrade_<language>.txt) and the page follows the Apocrypha Menu Framework's Language setting; English is the fallback. The framework is looked up by its sort-first name first; localmapupgrade.status gained op=strings.
+
 ## 1.2.7 - 2026-09-01 - untested
 
 ### Added

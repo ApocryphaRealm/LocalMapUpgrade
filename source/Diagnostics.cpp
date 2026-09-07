@@ -3,6 +3,7 @@
 #include "DevBench/DevBenchAPI.h"
 #include "Settings.h"
 #include "utils/Logger.h"
+#include "utils/Strings.h"
 
 #include <mutex>
 
@@ -451,6 +452,12 @@ namespace diagnostics
 				a_write(a_sink, reply.c_str());
 				return;
 			}
+			if (ArgString(args, "op") == "strings")
+			{
+				const std::string stringsReply = std::format(R"({{"ok":true,"op":"strings","strings":{}}})", strings::StatusJson());
+				a_write(a_sink, stringsReply.c_str());
+				return;
+			}
 
 			std::string json;
 
@@ -515,7 +522,8 @@ namespace diagnostics
 			"kPixelShaderPropertiesHook API message reached consumers such as Dragon's Eye "
 			"Minimap, and what the last local-map frame drew (markers, screen bounds, camera "
 			"zoom) plus player-set-marker counters. op=borderstyle with value 0 (knotwork) or 1 "
-			"(untarnished) switches the map border's style live.\","
+			"(untarnished) switches the map border's style live; op=strings reports the active "
+			"language, source and loaded translation count.\","
 			"\"inputSchema\":{\"type\":\"object\",\"properties\":{"
 			"\"op\":{\"type\":\"string\"},\"value\":{\"type\":\"string\"}}},"
 			"\"readOnly\":false"
