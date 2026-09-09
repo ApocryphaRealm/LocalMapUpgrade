@@ -63,6 +63,17 @@ namespace LMU
 
 		void PostCreateMarkers(RE::GFxValue& a_iconDisplay);
 
+		// The optional-add-on seam (API.h, ExtraMarkerProviderMessage). A provider is called once
+		// per marker build, after this plugin has added its own actor markers, and contributes
+		// whatever it likes through the callback it is handed. Nothing here knows what those
+		// markers represent.
+		using ProviderAddFn = void (*)(void* a_frame, std::uint32_t a_refHandle,
+									   const char* a_description, std::uint32_t a_iconType);
+		using ProviderFn = void (*)(void* a_frame, ProviderAddFn a_add);
+
+		static bool RegisterProvider(ProviderFn a_provider);
+		static bool HasProvider();
+
 		std::uint32_t GetAliveActorsDisplayRadius() const { return aliveActorsDisplayRadius / feetToUnits; }
 		std::uint32_t GetUndeadActorsDisplayRadius() const { return undeadActorsDisplayRadius / feetToUnits; }
 		std::uint32_t GetDeadActorsDisplayRadius() const { return deadActorsDisplayRadius / feetToUnits; }
@@ -90,6 +101,11 @@ namespace LMU
 
 	private:
 		static void AddExtraMarker(RE::ActorHandle& a_actorHandle, RE::Actor* actor, RE::BSTArray<RE::MapMenuMarker>& a_mapMarkers);
+
+		// Same push as AddExtraMarker, but from a raw handle and description, so a provider can
+		// mark something that is not an Actor.
+		static void AddExtraMarkerRaw(std::uint32_t a_refHandle, const char* a_description,
+									  RE::BSTArray<RE::MapMenuMarker>& a_mapMarkers);
 
 		static inline ExtraMarkersManager* singleton;
 

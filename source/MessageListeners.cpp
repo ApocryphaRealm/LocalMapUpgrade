@@ -79,6 +79,13 @@ void SKSEMessageListener(SKSE::MessagingInterface::Message* a_msg)
 		LMU::ExtraMarkersManager::InitSingleton();
 		diagnostics::RecordExtraMarkersManagerInitialized();
 
+		// The optional-add-on seam. Dispatched whether or not anything is listening; a consumer
+		// (the Item Markers add-on) answers by calling RegisterExtraMarkerProvider. With nobody
+		// listening this costs one dispatch and changes nothing.
+		LMU::API::ExtraMarkerProviderMessage extraMarkerProvider;
+		extraMarkerProvider.RegisterExtraMarkerProvider = &LMU::ExtraMarkersManager::RegisterProvider;
+		DispatchMessage(extraMarkerProvider);
+
 		// Last retry point - if DevBench still isn't found here, conclude it isn't installed and
 		// say so, rather than staying silent about it forever.
 		diagnostics::Init(/* a_lastAttempt = */ true);

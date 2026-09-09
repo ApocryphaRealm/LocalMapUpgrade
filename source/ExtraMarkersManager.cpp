@@ -92,6 +92,68 @@ namespace RE
 
 namespace LMU
 {
+	namespace
+	{
+		// One provider, set once. Written on the main thread at kDataLoaded (a consumer answering
+		// our dispatch) and read on the render thread while the map builds, so it is atomic.
+		std::atomic<ExtraMarkersManager::ProviderFn> g_provider{ nullptr };
+
+		// What AddExtraMarkers hands the provider as its opaque frame handle. Alive only for the
+		// duration of one marker build.
+		struct ProviderFrame
+		{
+			RE::BSTArray<RE::MapMenuMarker>* mapMarkers = nullptr;
+			RE::GFxValue*                    extraMarkerData = nullptr;
+			std::uint32_t                    added = 0;
+		};
+	}
+
+	bool ExtraMarkersManager::RegisterProvider(ProviderFn a_provider)
+	{
+		if (!a_provider)
+		{
+			logger::warn("RegisterProvider: refused a null provider");
+			return false;
+		}
+
+		ProviderFn expected = nullptr;
+
+		// First registration wins. Two add-ons both filling ExtraMarkerData would interleave their
+		// icon indices into one array and neither would draw what it meant to.
+		if (!g_provider.compare_exchange_strong(expected, a_provider))
+		{
+			logger::warn("RegisterProvider: a provider is already registered; refusing the second");
+			return false;
+		}
+
+		logger::info("RegisterProvider: an extra-marker provider registered - its markers will be "
+					 "added after this plugin's own actor markers");
+		return true;
+	}
+
+	bool ExtraMarkersManager::HasProvider()
+	{
+		return g_provider.load() != nullptr;
+	}
+
+	void ExtraMarkersManager::AddExtraMarkerRaw(std::uint32_t a_refHandle, const char* a_description,
+												RE::BSTArray<RE::MapMenuMarker>& a_mapMarkers)
+	{
+		RE::MapMenuMarker mapMarker
+		{
+			.data = nullptr,
+			.ref = a_refHandle,
+			.description = a_description ? a_description : "",
+			.type = RE::MapMenuMarker::Type::kLocation,  // same mind trick as the actor markers
+			.door = 0,
+			.index = -1,
+			.quest = nullptr,
+			.unk30 = 1
+		};
+
+		a_mapMarkers.push_back(mapMarker);
+	}
+
 	void ExtraMarkersManager::AddExtraMarker(RE::ActorHandle& a_actorHandle, RE::Actor* a_actor,
 											 RE::BSTArray<RE::MapMenuMarker>& a_mapMarkers)
 	{
@@ -817,6 +879,28 @@ namespace LMU
 			return;
 		}
 
+		// DIAGNOSTIC (2026-09-09): the Item Markers add-on contributes markers that are counted but
+		// never drawn. Before clearing, read what the GAME actually built from the previous frame's
+		// mapMarkers - MarkerData is the array the extension's PostCreateMarkers walks, three values
+		// per marker. If its length matches the markers we pushed, the game accepted them and the
+		// fault is in the SWF; if it is short, the game rejected some and the fault is ours.
+		{
+			RE::GFxValue markerData;
+			if (a_localMapMenu.GetRuntimeData().iconDisplay.GetMember("MarkerData", &markerData) &&
+				markerData.IsArray())
+			{
+				static std::uint32_t lastLoggedLen = static_cast<std::uint32_t>(-1);
+				const std::uint32_t len = markerData.GetArraySize();
+				if (len != lastLoggedLen)
+				{
+					lastLoggedLen = len;
+					logger::debug("AddExtraMarkers: last frame the game built MarkerData with {} value(s) "
+								  "= {} marker(s), and ExtraMarkerData held {}",
+								  len, len / 3, extraMarkersData.GetArraySize());
+				}
+			}
+		}
+
 		extraMarkersData.ClearElements();
 
 		RE::BSTArray<RE::MapMenuMarker>& mapMarkers = a_localMapMenu.mapMarkers;
@@ -950,6 +1034,38 @@ namespace LMU
 			}
 		}
 
+		// The optional add-on's turn. Runs after this plugin's own markers so their indices in
+		// ExtraMarkerData line up with the mapMarkers this plugin already pushed, and is a
+		// complete no-op when nothing is registered - which is the whole point of the seam.
+		if (ProviderFn provider = g_provider.load())
+		{
+			ProviderFrame frame;
+			frame.mapMarkers = &mapMarkers;
+			frame.extraMarkerData = &extraMarkersData;
+
+			provider(&frame, [](void* a_frame, std::uint32_t a_refHandle, const char* a_description,
+								std::uint32_t a_iconType) {
+				auto* f = static_cast<ProviderFrame*>(a_frame);
+				if (!f || !f->mapMarkers || !f->extraMarkerData)
+				{
+					return;
+				}
+
+				AddExtraMarkerRaw(a_refHandle, a_description, *f->mapMarkers);
+				f->extraMarkerData->PushBack(a_iconType);
+				++f->added;
+			});
+
+			addedCount += frame.added;
+
+			static std::uint32_t lastLoggedProvided = static_cast<std::uint32_t>(-1);
+			if (frame.added != lastLoggedProvided)
+			{
+				lastLoggedProvided = frame.added;
+				logger::debug("AddExtraMarkers: the registered provider contributed {} marker(s)", frame.added);
+			}
+		}
+
 		static std::uint32_t lastLoggedAdded = static_cast<std::uint32_t>(-1);
 		static std::uint32_t lastLoggedSkipped = static_cast<std::uint32_t>(-1);
 		if (addedCount != lastLoggedAdded || skippedBySettingCount != lastLoggedSkipped)
@@ -1002,6 +1118,44 @@ namespace LMU
 
 	void ExtraMarkersManager::PostCreateMarkers(RE::GFxValue& a_iconDisplay)
 	{
+		// DIAGNOSTIC (2026-09-09): measured HERE because this is the moment the Scaleform side is
+		// about to swap markers - MarkerData has been built by the game and _markerList exists. The
+		// earlier read, at the top of AddExtraMarkers, always saw a cleared array and told us
+		// nothing.
+		{
+			RE::GFxValue markerData, markerList, extraData;
+			const bool haveData = a_iconDisplay.GetMember("MarkerData", &markerData) && markerData.IsArray();
+			const bool haveList = a_iconDisplay.GetMember("_markerList", &markerList) && markerList.IsArray();
+			const bool haveExtra = a_iconDisplay.GetMember("ExtraMarkerData", &extraData) && extraData.IsArray();
+
+			const std::uint32_t dataLen = haveData ? markerData.GetArraySize() : 0;
+			const std::uint32_t listLen = haveList ? markerList.GetArraySize() : 0;
+			const std::uint32_t extraLen = haveExtra ? extraData.GetArraySize() : 0;
+
+			// How many of the built markers carry icon type 0 - the ONLY ones the extension will
+			// replace with an extra marker. If this is 6 while ExtraMarkerData holds 48, the game
+			// gave our object markers a non-zero icon type and the extension is skipping them.
+			std::uint32_t zeroIconCount = 0;
+			for (std::uint32_t i = 0; haveData && (i * 3 + 1) < dataLen; ++i)
+			{
+				RE::GFxValue v;
+				if (markerData.GetElement(i * 3 + 1, &v) && v.IsNumber() && v.GetNumber() == 0.0)
+				{
+					++zeroIconCount;
+				}
+			}
+
+			static std::uint32_t lastKey = static_cast<std::uint32_t>(-1);
+			const std::uint32_t key = dataLen * 1000u + zeroIconCount;
+			if (key != lastKey)
+			{
+				lastKey = key;
+				logger::debug("PostCreateMarkers: MarkerData {} value(s) = {} marker(s); _markerList {}; "
+							  "ExtraMarkerData {}; markers with iconType 0 (the replaceable ones): {}",
+							  dataLen, dataLen / 3, listLen, extraLen, zeroIconCount);
+			}
+		}
+
 		a_iconDisplay.Invoke("PostCreateMarkers");
 	}
 }
