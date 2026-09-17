@@ -25,6 +25,11 @@ reclaimed), **scratch** (a hypothesis-test build that never held a real number).
 >   through `rules-version.ps1 -Action bump`, both of which take their arithmetic from that same
 >   tool. A number typed by hand is wrong until the tool agrees.
 
+## 1.3.0 - 2026-09-16 - untested
+
+### Changed
+- Relicensed to GPL-3.0-or-later. The mod links CommonLibSSE-NG and builds against the SKSE Menu Framework header, both GPL-3.0, so the MIT licence it shipped with was never available to it. alexsylex's original MIT notice is preserved in THIRD_PARTY_NOTICES.md, as his licence requires. No code changed.
+
 ## 1.2.8 - 2026-09-07 - working
 
 ### Added
