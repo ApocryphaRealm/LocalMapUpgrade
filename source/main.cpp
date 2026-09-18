@@ -1,6 +1,7 @@
 #include "Hooks.h"
 #include "Settings.h"
 
+#include "utils/AddressLibraryGuard.h"
 #include "utils/Logger.h"
 
 extern const SKSE::LoadInterface* skse;
@@ -21,6 +22,14 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	}
 
 	logger::info("Loading {} {}...", plugin->GetName(), plugin->GetVersion());
+
+	// Address Library pre-check (the guard every mod of ours carries), BEFORE SKSE::Init, which opens the
+	// Address Library itself (logic library 6026): a missing file gets a message naming it and the plugin
+	// loads inert instead of CommonLibSSE-NG's bare failure line.
+	if (!AddressLibraryGuard::Guard("Local Map Upgrade"))
+	{
+		return true;
+	}
 
 	SKSE::Init(a_skse);
 
