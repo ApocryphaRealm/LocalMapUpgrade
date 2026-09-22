@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef KEEP_FOR_RE
+#	define KEEP_FOR_RE()  // CommonLibSSE-NG 3.7's marker; 7.2 (the Skyrim 1.7 line) has none
+#endif
+
 #include "RE/B/BSAtomic.h"
 #include "RE/B/BSTArray.h"
 #include "RE/N/NiNode.h"
@@ -104,7 +108,11 @@ namespace RE
 		const NiRTTI* GetRTTI() const override;	 // 02
 #if defined(EXCLUSIVE_SKYRIM_FLAT)
 		// The following are virtual functions past the point where VR compatibility breaks.
+#if RUNTIME_LINE == 17
+		void OnVisible(NiCullingProcess& a_process, std::int32_t a_alphaGroupIndex) override;  // 34 (7.2's signature)
+#else
 		void OnVisible(NiCullingProcess& a_process) override;  // 34
+#endif
 #endif
 
 		static ShadowSceneNode* GetMain()

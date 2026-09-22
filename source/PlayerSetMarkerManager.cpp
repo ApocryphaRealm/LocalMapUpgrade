@@ -7,9 +7,16 @@
 
 #undef MessageBox
 
+// CommonLibSSE-NG 7.2 (the Skyrim 1.7 line) moved TeleportPath out of PlayerCharacter into RE itself.
+#if RUNTIME_LINE == 17
+using LMUTeleportPath = RE::TeleportPath;
+#else
+using LMUTeleportPath = RE::PlayerCharacter::TeleportPath;
+#endif
+
 namespace RE
 {
-	void PlayerCharacter__SetMarkerTeleportData(PlayerCharacter* a_player, TESObjectREFR* a_marker, PlayerCharacter::TeleportPath* a_teleportPath, bool a_ignoreLocks)
+	void PlayerCharacter__SetMarkerTeleportData(PlayerCharacter* a_player, TESObjectREFR* a_marker, ::LMUTeleportPath* a_teleportPath, bool a_ignoreLocks)
 	{
 		using func_t = decltype(&PlayerCharacter__SetMarkerTeleportData);
 		static REL::Relocation<func_t> func{ REL::VariantID(39441, 40517, 0x6C4D30) };
@@ -218,7 +225,7 @@ namespace LMU
 				}
 
 				RE::ObjectRefHandle playerMapMarker = REL::Module::IsVR() ? player->GetVRInfoRuntimeData()->playerMapMarker : player->GetInfoRuntimeData().playerMapMarker;
-				RE::PlayerCharacter::TeleportPath* playerMarkerTeleportPath = REL::Module::IsVR() ? player->GetVRInfoRuntimeData()->playerMarkerPath : player->GetInfoRuntimeData().playerMarkerPath;
+				::LMUTeleportPath* playerMarkerTeleportPath = REL::Module::IsVR() ? player->GetVRInfoRuntimeData()->playerMarkerPath : player->GetInfoRuntimeData().playerMarkerPath;
 
 				if (!playerMapMarker || !playerMarkerTeleportPath)
 				{
@@ -256,7 +263,11 @@ namespace LMU
 		}
 	}
 
+#if RUNTIME_LINE == 17
+	void PlayerSetMarkerManager::MessageBox::Callback::Run(std::uint8_t a_optionIndex)
+#else
 	void PlayerSetMarkerManager::MessageBox::Callback::Run(Message a_optionIndex)
+#endif
 	{
 		auto player = RE::PlayerCharacter::GetSingleton();
 

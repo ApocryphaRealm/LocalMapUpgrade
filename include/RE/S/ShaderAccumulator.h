@@ -17,7 +17,11 @@ namespace RE
 			inline static auto Ni_RTTI = NiRTTI_BSShaderAccumulator;
 
 			virtual ~BSShaderAccumulator() = default;
+#if RUNTIME_LINE == 17
+			virtual void StartAccumulating(NiCamera* a_camera) override;  // 7.2's signature
+#else
 			virtual void StartAccumulating(NiCamera const*) override;
+#endif
 			virtual void FinishAccumulatingDispatch(uint32_t RenderFlags);
 
 			struct RUNTIME_DATA

@@ -15,6 +15,16 @@ namespace utils
 
 		using Type = RE::Setting::Type;
 
+		// members (declared first: MSVC 14.51 with /std:c++latest did not see them from the constructor template below
+		// when they came after it - the Skyrim 1.7 line's build. Data-member order, and so the layout, is unchanged.)
+		RE::Setting::Data data{};  // 08
+		char* name;				   // 10
+
+		Type GetType() const
+		{
+			return reinterpret_cast<const RE::Setting*>(this)->GetType();
+		}
+
 		template <typename T>
 		Setting(const char* a_name, T a_data)
 			requires(std::same_as<T, const char*> ||
@@ -46,7 +56,12 @@ namespace utils
 						return;
 					}
 				} else if constexpr (std::is_same_v<T, int>) {
-					if (GetType() == Type::kSignedInteger) {
+#if RUNTIME_LINE == 17
+					if (GetType() == Type::kInteger)
+#else
+					if (GetType() == Type::kSignedInteger)
+#endif
+					{
 						data.i = a_data;
 
 						return;
@@ -84,14 +99,6 @@ namespace utils
 		// For the virtual table auto-generation.
 		virtual bool Unk_01(void) { return false; }	 // 01
 
-		Type GetType() const
-		{
-			return reinterpret_cast<const RE::Setting*>(this)->GetType();
-		}
-
-		// members
-		RE::Setting::Data data{};  // 08
-		char* name;				   // 10
 	};
 	static_assert(sizeof(Setting) == sizeof(RE::Setting));
 

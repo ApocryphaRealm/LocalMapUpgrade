@@ -1,0 +1,130 @@
+{
+ "ids": [
+  [
+   52078,
+   52966
+  ],
+  [
+   52081,
+   52971
+  ],
+  [
+   16094,
+   16335
+  ],
+  [
+   19274,
+   19700
+  ],
+  [
+   11616,
+   11762
+  ],
+  [
+   11617,
+   11763
+  ],
+  [
+   39441,
+   40517
+  ],
+  [
+   39458,
+   40535
+  ],
+  [
+   39459,
+   40536
+  ],
+  [
+   51421,
+   442726
+  ],
+  [
+   52186,
+   53078
+  ],
+  [
+   51421,
+   53108
+  ],
+  [
+   501260,
+   359696
+  ]
+ ],
+ "calls": [
+  [
+   16094,
+   "0x105",
+   16335,
+   "0x105",
+   "IsSmallWorld (RenderOffScreen)"
+  ],
+  [
+   52081,
+   "0x673",
+   52971,
+   "0x7A6",
+   "AddQuestMarkersToMap (PopulateData) - 1.7: +0x7A6"
+  ],
+  [
+   52078,
+   "0xDF",
+   52966,
+   "0xD9",
+   "Invoke CreateMarkers (Advance)"
+  ]
+ ],
+ "vtables": [
+  [
+   270662,
+   216412,
+   1,
+   1,
+   "LocalMapMenu::InputHandler CanProcess"
+  ],
+  [
+   270662,
+   216412,
+   5,
+   7,
+   "LocalMapMenu::InputHandler ProcessButton"
+  ],
+  [
+   305321,
+   255097,
+   2,
+   2,
+   "BSWaterShader SetupTechnique"
+  ],
+  [
+   257661,
+   205863,
+   4,
+   4,
+   "DetectLifeEffect Update"
+  ],
+  [
+   257919,
+   206031,
+   4,
+   4,
+   "ScriptEffect Update"
+  ],
+  [
+   257585,
+   205822,
+   1,
+   1,
+   "StopHitEffectsVisitor Visit"
+  ],
+  [
+   257968,
+   206059,
+   "0x3E",
+   "0x3E",
+   "ShaderReferenceEffect DetachImpl"
+  ]
+ ]
+}

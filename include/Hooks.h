@@ -138,7 +138,13 @@ namespace hooks
 		// `LocalMapMenu::PopulateData` (call to `AddQuestMarkersToMapHook`)
 		struct AddQuestMarkersToMapHook : Hook<5>
 		{
+			// Line 17: on 1.7.104 the call to AddQuestMarkersToMap (id 53073) is 6 bytes later, at +0x7A6 - the argument
+			// setup before it grew (tools/check-17.json, read from the 1.7.104 code with .MD/scripts/check-17.py).
+#if RUNTIME_LINE == 17
+			static std::uintptr_t Address() { return LocalMapMenu::PopulateData.address() + 0x7A6; }
+#else
 			static std::uintptr_t Address() { return LocalMapMenu::PopulateData.address() + REL::Relocate(0x673, 0x7A0, 0x673); }
+#endif
 
 			AddQuestMarkersToMapHook(std::uintptr_t a_hookedAddress)
 				: Hook{ a_hookedAddress, reinterpret_cast<std::uintptr_t>(&AddExtraAndQuestMarkersToMap) }
@@ -184,7 +190,13 @@ namespace hooks
 		diagnostics::RecordHookInstalled(diagnostics::Hook::kInputHandlerCanProcess, LocalMapMenu::InputHandler::CanProcess.address() != 0);
 
 		// `LocalMapMenu::InputHandler::ProcessButton` offset in the virtual table changes in VR
+		// Line 17: Skyrim 1.7.99 inserted two virtuals into MenuEventHandler before the input functions, so ProcessButton
+		// is slot 7 there (read from the 1.7.104 vtable: slots 3-4 are new `return false` stubs, 5-7 the three handlers).
+#if RUNTIME_LINE == 17
+		LocalMapMenu::InputHandler::ProcessButton = LocalMapMenu::InputHandler::vTable.write_vfunc(7, ProcessButton);
+#else
 		LocalMapMenu::InputHandler::ProcessButton = LocalMapMenu::InputHandler::vTable.write_vfunc(REL::Module::IsVR() ? 8 : 5, ProcessButton);
+#endif
 		diagnostics::RecordHookInstalled(diagnostics::Hook::kInputHandlerProcessButton, LocalMapMenu::InputHandler::ProcessButton.address() != 0);
 
 		BSWaterShader::SetupTechnique = BSWaterShader::vTable.write_vfunc(2, &SetupWaterShaderTechnique);

@@ -36,7 +36,11 @@ namespace LMU
 		{
 			struct Callback : RE::IMessageBoxCallback
 			{
+#if RUNTIME_LINE == 17
+				void Run(std::uint8_t a_optionIndex) final;  // CommonLibSSE-NG 7.2 passes the button index as a byte
+#else
 				void Run(Message a_optionIndex) final;
+#endif
 
 				void SetData(RE::LocalMapMenu* a_localMapMenu, float a_wndPointX, float a_wndPointY)
 				{

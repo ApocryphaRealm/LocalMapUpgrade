@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef KEEP_FOR_RE
+#	define KEEP_FOR_RE()  // CommonLibSSE-NG 3.7's marker; 7.2 (the Skyrim 1.7 line) has none
+#endif
+
 #include "RE/B/BSCullingProcess.h"
 #include "RE/B/BSScaleformExternalTexture.h"
 #include "RE/B/BSTArray.h"
@@ -102,9 +106,13 @@ namespace RE
 
 			// override (MenuEventHandler)
 			bool CanProcess(InputEvent* a_event) override;              // 01
+#if RUNTIME_LINE != 17
 			bool ProcessThumbstick(ThumbstickEvent* a_event) override;  // 03
 			bool ProcessMouseMove(MouseMoveEvent* a_event) override;    // 04
 			bool ProcessButton(ButtonEvent* a_event) override;          // 05
+#endif
+			// Line 17: CommonLibSSE-NG 7.2 makes these non-virtual wrappers, because Skyrim 1.7.99 inserted two virtuals
+			// before them (every slot from ProcessKinect on moves +2). Hooks.h picks the slot at run time.
 
 			// members
 			LocalMapMenu* localMapMenu;  // 10

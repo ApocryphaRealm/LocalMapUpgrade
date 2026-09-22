@@ -9,6 +9,8 @@ namespace RE
 {
 	class NiSwitchNode;
 
+// Line 17: CommonLibSSE-NG 7.2 defines NiTScrapHeapInterface / NiTScrapArray itself (RE/N/NiTArray.h), same layout.
+#if RUNTIME_LINE != 17
 	template <class T>
 	class NiTScrapHeapInterface
 	{
@@ -34,6 +36,7 @@ namespace RE
 		{}
 	};
 	static_assert(sizeof(NiTScrapArray<void*>) == 0x18);
+#endif
 
 	class NiPick
 	{
