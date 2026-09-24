@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.21)
+﻿cmake_minimum_required(VERSION 3.21)
 
 ########################################################################################################################
 ## Define project
@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.21)
 
 project(
 	LocalMapUpgrade
-	VERSION 1.3.1
+	VERSION 1.3.2
 	LANGUAGES CXX
 )
 
@@ -35,7 +35,11 @@ source_group(
 function(make_includable input_file output_file)
     file(READ ${input_file} content)
     set(content "R\"${delim}(\n${content})${delim}\"")
-    file(WRITE ${output_file} "${content}")
+    # Written only when the text changes: a rewrite on every configure made the header newer than the
+    # other build line's DLL, and the package gate read that as a DLL built before its sources.
+    get_filename_component(name ${output_file} NAME)
+    file(WRITE ${CMAKE_BINARY_DIR}/${name}.tmp "${content}")
+    file(COPY_FILE ${CMAKE_BINARY_DIR}/${name}.tmp ${CMAKE_CURRENT_SOURCE_DIR}/${output_file} ONLY_IF_DIFFERENT)
 endfunction(make_includable)
 
 make_includable(shaders/ISLocalMap.hlsl include/ISLocalMap.hlsl.h)

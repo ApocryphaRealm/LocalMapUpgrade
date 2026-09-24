@@ -25,6 +25,15 @@ reclaimed), **scratch** (a hypothesis-test build that never held a real number).
 >   through `rules-version.ps1 -Action bump`, both of which take their arithmetic from that same
 >   tool. A number typed by hand is wrong until the tool agrees.
 
+## 1.3.2 - 2026-09-24 - working
+
+### Added
+- A Skyrim 1.7 build line (1.7.99 and later), built on CommonLibSSE-NG 7.2; the installer asks which game you run. It is
+  what Dragon's Eye Minimap's 1.7 build draws the minimap with. Two addresses differ on 1.7 and were checked against the
+  1.7.104 code (tools\check-17.json): the AddQuestMarkersToMap call inside PopulateData, and LocalMapMenu's input
+  handler, which moved two slots down the vtable when 1.7.99 added two MenuEventHandler functions. The SE/AE line is
+  unchanged.
+
 ## 1.3.1 - 2026-09-18 - untested
 
 ### Changed

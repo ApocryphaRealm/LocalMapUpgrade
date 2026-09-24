@@ -82,7 +82,11 @@
    216412,
    1,
    1,
-   "LocalMapMenu::InputHandler CanProcess"
+   "LocalMapMenu::InputHandler CanProcess",
+   {
+    "reviewed": "48896c2418574883ec20488b",
+    "why": "reviewed 2026-09-24: same body, rbp/rsi instead of r14/rdi; reads the same +0x303FC/+0x303FE flags"
+   }
   ],
   [
    270662,
@@ -103,7 +107,11 @@
    205863,
    4,
    4,
-   "DetectLifeEffect Update"
+   "DetectLifeEffect Update",
+   {
+    "reviewed": "e95b80ffffcccccccccccccc",
+    "why": "reviewed 2026-09-24: a jmp thunk on both runtimes; only the rel32 differs"
+   }
   ],
   [
    257919,
@@ -124,7 +132,11 @@
    206059,
    "0x3E",
    "0x3E",
-   "ShaderReferenceEffect DetachImpl"
+   "ShaderReferenceEffect DetachImpl",
+   {
+    "reviewed": "40574883ec4048896c243848",
+    "why": "reviewed 2026-09-24: same body, fewer saved registers; calls the same helper first and releases +0x118"
+   }
   ]
  ]
 }
