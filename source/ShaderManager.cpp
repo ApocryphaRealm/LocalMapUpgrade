@@ -39,21 +39,10 @@ namespace LMU
 		{
 			localMapPixelShader = *localMapShader->pixelShaders.begin();
 
-			// Squared Black & White
-			squaredShaders.blackNWhite.fogOfWar = CompilePixelShader(pixelShaderSrc);
-			squaredShaders.blackNWhite.noFogOfWar = CompilePixelShader(pixelShaderSrc, { "NO_FOG_OF_WAR" });
-
-			// Squared Color
-			squaredShaders.color.fogOfWar = CompilePixelShader(pixelShaderSrc, { "COLOR" });
-			squaredShaders.color.noFogOfWar = CompilePixelShader(pixelShaderSrc, { "COLOR", "NO_FOG_OF_WAR" });
-
-			// Round Black & White
-			roundShaders.blackNWhite.fogOfWar = CompilePixelShader(pixelShaderSrc, { "ROUND" });
-			roundShaders.blackNWhite.noFogOfWar = CompilePixelShader(pixelShaderSrc, { "ROUND", "NO_FOG_OF_WAR" });
-
-			// Round Color
-			roundShaders.color.fogOfWar = CompilePixelShader(pixelShaderSrc, { "ROUND", "COLOR" });
-			roundShaders.color.noFogOfWar = CompilePixelShader(pixelShaderSrc, { "ROUND", "COLOR", "NO_FOG_OF_WAR" });
+			const float minOpacity = std::clamp(settings::mapmenu::localMapMinOpacity, 0.0F, 1.0F);
+			const std::string minAlpha = std::format("{:.3f}", minOpacity);
+			CompileAll(minAlpha.c_str(), squaredShaders, roundShaders);
+			builtMinOpacity = minOpacity;
 
 			isFogOfWarEnabled = settings::mapmenu::localMapFogOfWar;
 
@@ -65,8 +54,89 @@ namespace LMU
 		}
 	}
 
+	bool ShaderManager::CompileAll(const char* a_minAlpha, PixelShaderGroup& a_squared, PixelShaderGroup& a_round)
+	{
+		// Squared Black & White
+		a_squared.blackNWhite.fogOfWar = CompilePixelShader(pixelShaderSrc, {}, a_minAlpha);
+		a_squared.blackNWhite.noFogOfWar = CompilePixelShader(pixelShaderSrc, { "NO_FOG_OF_WAR" }, a_minAlpha);
+
+		// Squared Color
+		a_squared.color.fogOfWar = CompilePixelShader(pixelShaderSrc, { "COLOR" }, a_minAlpha);
+		a_squared.color.noFogOfWar = CompilePixelShader(pixelShaderSrc, { "COLOR", "NO_FOG_OF_WAR" }, a_minAlpha);
+
+		// Round Black & White
+		a_round.blackNWhite.fogOfWar = CompilePixelShader(pixelShaderSrc, { "ROUND" }, a_minAlpha);
+		a_round.blackNWhite.noFogOfWar = CompilePixelShader(pixelShaderSrc, { "ROUND", "NO_FOG_OF_WAR" }, a_minAlpha);
+
+		// Round Color
+		a_round.color.fogOfWar = CompilePixelShader(pixelShaderSrc, { "ROUND", "COLOR" }, a_minAlpha);
+		a_round.color.noFogOfWar = CompilePixelShader(pixelShaderSrc, { "ROUND", "COLOR", "NO_FOG_OF_WAR" }, a_minAlpha);
+
+		for (const PixelShaderGroup* g : { &a_squared, &a_round })
+		{
+			for (const PixelShaderGroup::FogOfWarGroup* f : { &g->blackNWhite, &g->color })
+			{
+				if (!f->fogOfWar || !f->noFogOfWar)
+				{
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	void ShaderManager::Release(PixelShaderGroup& a_group)
+	{
+		for (PixelShaderGroup::FogOfWarGroup* f : { &a_group.blackNWhite, &a_group.color })
+		{
+			for (REX::W32::ID3D11PixelShader** s : { &f->fogOfWar, &f->noFogOfWar })
+			{
+				if (*s)
+				{
+					(*s)->Release();
+					*s = nullptr;
+				}
+			}
+		}
+	}
+
+	bool ShaderManager::SetMinOpacity(float a_minOpacity)
+	{
+		a_minOpacity = std::clamp(a_minOpacity, 0.0F, 1.0F);
+		if (!localMapPixelShader || std::abs(a_minOpacity - builtMinOpacity) < 0.0005F)
+		{
+			return true;
+		}
+
+		const auto  t0 = std::chrono::steady_clock::now();
+		const std::string minAlpha = std::format("{:.3f}", a_minOpacity);
+		PixelShaderGroup  newSquared, newRound;
+		if (!CompileAll(minAlpha.c_str(), newSquared, newRound))
+		{
+			Release(newSquared);
+			Release(newRound);
+			logger::error("Minimum opacity {}: a shader variant failed to build - the previous set ({:.3f}) stays", minAlpha, builtMinOpacity);
+			return false;
+		}
+
+		// swap, point the game's local-map shader at the new variant, then release the old set (a shader the device
+		// context still has bound keeps its own reference until it is unbound)
+		PixelShaderGroup oldSquared = squaredShaders, oldRound = roundShaders;
+		squaredShaders = newSquared;
+		roundShaders = newRound;
+		SetPixelShaderProperties(shape, style);
+		Release(oldSquared);
+		Release(oldRound);
+		builtMinOpacity = a_minOpacity;
+
+		logger::info("Minimum opacity set to {} - eight shader variants rebuilt in {:.1f} ms", minAlpha,
+			std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+		return true;
+	}
+
 	REX::W32::ID3D11PixelShader* ShaderManager::CompilePixelShader(const char* a_pixelShaderSrc,
-																   const std::vector<const char*>& a_defineNames)
+																   const std::vector<const char*>& a_defineNames,
+																   const char* a_minAlpha)
 	{
 		static constexpr std::uint32_t compileFlags = D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR;
 
@@ -89,12 +159,13 @@ namespace LMU
 		}
 
 		std::vector<D3D_SHADER_MACRO> pixelShaderMacro;
-		pixelShaderMacro.reserve(a_defineNames.size() + 1);
+		pixelShaderMacro.reserve(a_defineNames.size() + 2);
 
 		for (const char* defineName : a_defineNames)
 		{
 			pixelShaderMacro.push_back(D3D_SHADER_MACRO{ .Name{ defineName }, .Definition{ "" } });
 		}
+		pixelShaderMacro.push_back(D3D_SHADER_MACRO{ .Name{ "MIN_ALPHA" }, .Definition{ a_minAlpha ? a_minAlpha : "0.0" } });
 		pixelShaderMacro.push_back(D3D_SHADER_MACRO{ nullptr, nullptr });
 
 		REX::W32::ID3DBlob* pixelShaderBlob = nullptr;

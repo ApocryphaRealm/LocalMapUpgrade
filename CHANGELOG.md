@@ -25,6 +25,19 @@ reclaimed), **scratch** (a hypothesis-test build that never held a real number).
 >   through `rules-version.ps1 -Action bump`, both of which take their arithmetic from that same
 >   tool. A number typed by hand is wrong until the tool agrees.
 
+## 1.3.3 - 2026-10-08 - untested
+
+- **Minimum opacity for the local map** (Nexus, MorpheusTDK 2026-10-08, pointing at avip2u's report on the original
+  mod: the explored map is too see-through in dark places). A new slider, Minimum opacity (0.00 - 1.00, one hundredth
+  per nudge), and INI key `[MapMenu] fMapLocalMinOpacity` (default 0.0 = the look so far). The shader takes it as
+  `MIN_ALPHA`: `alpha = max(alpha, MIN_ALPHA)` BEFORE the fog-of-war factor - avip2u's outline put it after, which would
+  have drawn unexplored ground at that opacity. Changing it rebuilds the eight shader variants once the slider rests
+  (300 ms), on the main thread, and swaps them in; the log names the value and the rebuild time.
+- The INI key names avip2u found misspelled in the original 3.1.0 (`bLocalMap...` in the INI, `bMapLocal...` in the
+  code) were already fixed in this fork (08c1708): the code and the shipped INI both read `bLocalMapColor` /
+  `bLocalMapFogOfWar`. Nothing to change there - renaming them to `bMapLocal...` would break this fork.
+- Two new texts, eleven languages (46 keys).
+
 ## 1.3.2 - 2026-09-24 - working
 
 ### Added

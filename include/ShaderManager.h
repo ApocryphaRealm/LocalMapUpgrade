@@ -36,6 +36,11 @@ namespace LMU
 		// whatever the current state happens to be.
 		void SetFogOfWar(bool a_enabled);
 
+		// Rebuilds the eight local-map pixel shaders with MIN_ALPHA = a_minOpacity (0..1) and swaps them in. Main thread.
+		// A no-op when the value is the one already built. Returns false when a variant failed (the old set stays).
+		bool SetMinOpacity(float a_minOpacity);
+		static float GetBuiltMinOpacity() { return builtMinOpacity; }
+
 		static void SetPixelShaderProperties(PixelShaderProperty::Shape a_shape, PixelShaderProperty::Style a_style);
 		static void GetPixelShaderProperties(PixelShaderProperty::Shape& a_shape, PixelShaderProperty::Style& a_style);
 
@@ -43,7 +48,13 @@ namespace LMU
 		ShaderManager();
 
 		REX::W32::ID3D11PixelShader* CompilePixelShader(const char* a_pixelShaderSrc,
-														const std::vector<const char*>& a_defineNames = { });
+														const std::vector<const char*>& a_defineNames = { },
+														const char* a_minAlpha = "0.0");
+
+		// all eight variants into a_squared / a_round; false if any failed
+		bool CompileAll(const char* a_minAlpha, PixelShaderGroup& a_squared, PixelShaderGroup& a_round);
+		static void Release(PixelShaderGroup& a_group);
+		static inline float builtMinOpacity = 0.0F;
 
 		static inline ShaderManager* singleton = nullptr;
 		

@@ -181,6 +181,30 @@ namespace UI
 			}
 			HelpMarker(strings::TR("LMU_HelpFogOfWar", "Whether unexplored parts of the local map stay hidden. Disabling reveals the whole map."));
 
+			// Minimum opacity (Nexus posts, 2026-10-08: the explored map is too see-through in dark places). The shader is
+			// rebuilt with the new floor once the slider has rested for a moment, not on every frame of a drag.
+			{
+				static auto  s_lastChange = std::chrono::steady_clock::time_point{};
+				static bool  s_pending = false;
+				if (NudgeableSlider(strings::TR("LMU_MinOpacity", "Minimum opacity"), &mapmenu::localMapMinOpacity, 0.0F, 1.0F, "%.2f", 0.01F))
+				{
+					mapmenu::localMapMinOpacity = std::clamp(mapmenu::localMapMinOpacity, 0.0F, 1.0F);
+					s_lastChange = std::chrono::steady_clock::now();
+					s_pending = true;
+				}
+				HelpMarker(strings::TR("LMU_HelpMinOpacity", "How see-through the explored local map may get in dark places. 0 keeps the mod's own look; higher values keep it readable. Unexplored areas stay hidden by fog of war."));
+				if (s_pending && std::chrono::steady_clock::now() - s_lastChange > std::chrono::milliseconds(300))
+				{
+					s_pending = false;
+					OnMainThread([]() {
+						if (auto* shaderManager = LMU::ShaderManager::GetSingleton())
+						{
+							shaderManager->SetMinOpacity(settings::mapmenu::localMapMinOpacity);
+						}
+					});
+				}
+			}
+
 			NudgeableSlider(strings::TR("LMU_KeyboardPanSpeed", "Keyboard pan speed"), &mapmenu::localMapKeyboardPanSpeed, 5.0F, 300.0F, "%.0f", 1.0F);
 			HelpMarker(strings::TR("LMU_HelpKeyboardPanSpeed", "How fast the local map pans when panning it with the keyboard."));
 
@@ -354,6 +378,7 @@ namespace UI
 													  : LMU::PixelShaderProperty::Style::kBlackNWhite);
 
 				shaderManager->SetFogOfWar(settings::mapmenu::localMapFogOfWar);
+				shaderManager->SetMinOpacity(settings::mapmenu::localMapMinOpacity);
 			}
 		});
 	}

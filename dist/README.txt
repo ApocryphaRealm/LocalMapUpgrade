@@ -1,10 +1,12 @@
 ﻿# Local Map Upgrade
 
-Version 1.3.2
+Version 1.3.3
 
 WHAT CHANGED
 ------------
 
+Version 1.3.3
+New setting Minimum opacity (INI [MapMenu] fMapLocalMinOpacity, 0.0 to 1.0, default 0.0 = unchanged): how see-through the explored local map may get in dark places. Raise it if the map is hard to read in dark interiors. Unexplored ground stays hidden by fog of war.
 Version 1.3.2
 Added a Skyrim 1.7 build (1.7.99 and later); the installer asks which game you run. Dragon's Eye Minimap's 1.7 build draws its minimap through it.
 Version 1.3.1

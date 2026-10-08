@@ -63,6 +63,13 @@ PS_OUTPUT main(PS_INPUT input)
     float luminance = RGBToLuminanceAlternative(colorCC.xyz);
 
     float alpha = (dot(4 * (pow(colorLR, 2) + pow(colorBT, 2)), 1.75) + luminance);
+
+    // Minimum opacity (fMapLocalMinOpacity, 0 = unchanged): dark areas drew almost fully transparent (avip2u's report on
+    // the original mod). The floor goes on BEFORE fog of war, so unexplored ground stays hidden.
+#ifndef MIN_ALPHA
+#define MIN_ALPHA 0.0
+#endif
+    alpha = max(alpha, MIN_ALPHA);
     
 #ifndef NO_FOG_OF_WAR
     alpha *= 1 - colorCC.w;

@@ -38,6 +38,8 @@ namespace settings
 		inline bool localMapColor = true;
 		inline bool localMapFogOfWar = true;
 		inline float localMapKeyboardPanSpeed = 60.0F;
+		// fMapLocalMinOpacity - the least opacity the explored local map is drawn with (0 = the mod's own look, 1 = solid)
+		inline float localMapMinOpacity = 0.0F;
 		inline bool localMapShowEnemyActors = true;
 		inline bool localMapShowHostileActors = true;
 		inline bool localMapShowGuardActors = true;

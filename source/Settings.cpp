@@ -30,6 +30,7 @@ namespace settings
 			bool localMapColor;
 			bool localMapFogOfWar;
 			float localMapKeyboardPanSpeed;
+			float localMapMinOpacity;
 			bool localMapShowEnemyActors;
 			bool localMapShowHostileActors;
 			bool localMapShowGuardActors;
@@ -50,6 +51,7 @@ namespace settings
 			defaults.localMapColor = mapmenu::localMapColor;
 			defaults.localMapFogOfWar = mapmenu::localMapFogOfWar;
 			defaults.localMapKeyboardPanSpeed = mapmenu::localMapKeyboardPanSpeed;
+			defaults.localMapMinOpacity = mapmenu::localMapMinOpacity;
 			defaults.localMapShowEnemyActors = mapmenu::localMapShowEnemyActors;
 			defaults.localMapShowHostileActors = mapmenu::localMapShowHostileActors;
 			defaults.localMapShowGuardActors = mapmenu::localMapShowGuardActors;
@@ -504,6 +506,7 @@ namespace settings
 				localMapColor = Read<bool>(c, "bLocalMapColor:MapMenu", localMapColor);
 				localMapFogOfWar = Read<bool>(c, "bLocalMapFogOfWar:MapMenu", localMapFogOfWar);
 				localMapKeyboardPanSpeed = Read<float>(c, "fMapLocalKeyboardPanSpeed:MapMenu", localMapKeyboardPanSpeed);
+				localMapMinOpacity = std::clamp(Read<float>(c, "fMapLocalMinOpacity:MapMenu", localMapMinOpacity), 0.0F, 1.0F);
 				localMapShowEnemyActors = Read<bool>(c, "bMapLocalShowEnemyActors:MapMenu", localMapShowEnemyActors);
 				localMapShowHostileActors = Read<bool>(c, "bMapLocalShowHostileActors:MapMenu", localMapShowHostileActors);
 				localMapShowGuardActors = Read<bool>(c, "bMapLocalShowGuardActors:MapMenu", localMapShowGuardActors);
@@ -542,6 +545,7 @@ namespace settings
 			add("bLocalMapColor:MapMenu", localMapColor);
 			add("bLocalMapFogOfWar:MapMenu", localMapFogOfWar);
 			add("fMapLocalKeyboardPanSpeed:MapMenu", localMapKeyboardPanSpeed);
+			add("fMapLocalMinOpacity:MapMenu", localMapMinOpacity);
 			add("bMapLocalShowEnemyActors:MapMenu", localMapShowEnemyActors);
 			add("bMapLocalShowHostileActors:MapMenu", localMapShowHostileActors);
 			add("bMapLocalShowGuardActors:MapMenu", localMapShowGuardActors);
@@ -617,6 +621,7 @@ namespace settings
 		ok &= WriteBool(kMapMenuSection, "bLocalMapColor", mapmenu::localMapColor);
 		ok &= WriteBool(kMapMenuSection, "bLocalMapFogOfWar", mapmenu::localMapFogOfWar);
 		ok &= WriteFloat(kMapMenuSection, "fMapLocalKeyboardPanSpeed", mapmenu::localMapKeyboardPanSpeed);
+		ok &= WriteFloat(kMapMenuSection, "fMapLocalMinOpacity", mapmenu::localMapMinOpacity);
 		ok &= WriteBool(kMapMenuSection, "bMapLocalShowEnemyActors", mapmenu::localMapShowEnemyActors);
 		ok &= WriteBool(kMapMenuSection, "bMapLocalShowHostileActors", mapmenu::localMapShowHostileActors);
 		ok &= WriteBool(kMapMenuSection, "bMapLocalShowGuardActors", mapmenu::localMapShowGuardActors);
@@ -652,6 +657,7 @@ namespace settings
 		mapmenu::localMapColor = defaults.localMapColor;
 		mapmenu::localMapFogOfWar = defaults.localMapFogOfWar;
 		mapmenu::localMapKeyboardPanSpeed = defaults.localMapKeyboardPanSpeed;
+		mapmenu::localMapMinOpacity = defaults.localMapMinOpacity;
 		mapmenu::localMapShowEnemyActors = defaults.localMapShowEnemyActors;
 		mapmenu::localMapShowHostileActors = defaults.localMapShowHostileActors;
 		mapmenu::localMapShowGuardActors = defaults.localMapShowGuardActors;
