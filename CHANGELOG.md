@@ -38,6 +38,9 @@ reclaimed), **scratch** (a hypothesis-test build that never held a real number).
   `bLocalMapFogOfWar`. Nothing to change there - renaming them to `bMapLocal...` would break this fork.
 - Two new texts, eleven languages (46 keys).
 
+### Fixed
+- The DLL's own file properties (LegalCopyright in the version resource) now say GPL-3.0-or-later, matching the repo's LICENSE since the 2026-09-16 relicense; builds since then still said MIT License there.
+
 ## 1.3.2 - 2026-09-24 - working
 
 ### Added
