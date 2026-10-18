@@ -45,6 +45,9 @@ reclaimed), **scratch** (a hypothesis-test build that never held a real number).
 ### Added
 - DevBench op=border (value 0 or 1) turns the map border off or on live, so a test needs no INI edit.
 
+### Changed
+- The log now defaults to info (uLogLevel=2) in the shipped INI and in the code, instead of full trace; raise uLogLevel in the INI to 0 for a bug report.
+
 ## 1.3.2 - 2026-09-24 - working
 
 ### Added

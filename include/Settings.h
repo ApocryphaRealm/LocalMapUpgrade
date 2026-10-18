@@ -30,7 +30,7 @@ namespace settings
 
 	namespace debug
 	{
-		inline logger::level logLevel = logger::level::trace;
+		inline logger::level logLevel = logger::level::info;   // ships at info (the owner, 2026-09-26); raise uLogLevel in the INI to see more
 	}
 
 	namespace mapmenu
