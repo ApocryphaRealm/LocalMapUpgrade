@@ -452,6 +452,16 @@ namespace diagnostics
 				a_write(a_sink, reply.c_str());
 				return;
 			}
+			// op=border value 0/1 turns the local map border off/on live, so a test needs no INI edit.
+			if (ArgString(args, "op") == "border")
+			{
+				const bool on = (ArgString(args, "value") == "1");
+				settings::mapmenu::localMapBorder = on;
+				logger::info("DevBench: local map border -> {}", on ? "on" : "off");
+				const std::string borderReply = std::string("{\"ok\":true,\"op\":\"border\",\"value\":") + (on ? "1" : "0") + "}";
+				a_write(a_sink, borderReply.c_str());
+				return;
+			}
 			if (ArgString(args, "op") == "strings")
 			{
 				const std::string stringsReply = std::format(R"({{"ok":true,"op":"strings","strings":{}}})", strings::StatusJson());

@@ -39,7 +39,11 @@ reclaimed), **scratch** (a hypothesis-test build that never held a real number).
 - Two new texts, eleven languages (46 keys).
 
 ### Fixed
+- The Skyrim map border (the knotwork frame) drew nothing on the first time the local map was opened, and appeared only on the second open. The frame was loaded as three DDS files through Scaleform's img:// protocol, which does not resolve loose texture files (every spelling of the path came back as the engine's placeholder image), and the placement it did make ran once when the map opened, before any image could have arrived. The frame is now drawn from the real art's own pixels with the clip drawing API (generated into include/FrameArt.h by tools/gen-frame-art.py), so it needs no load and appears on the first open. It is placed in the map's own stage units, so it follows the map at any screen resolution - the log line that read as '2.5x off at 3200x1800' was a screen-pixel diagnostic that was never used for placement, and is now logged at debug level and labelled as such.
 - The DLL's own file properties (LegalCopyright in the version resource) now say GPL-3.0-or-later, matching the repo's LICENSE since the 2026-09-16 relicense; builds since then still said MIT License there.
+
+### Added
+- DevBench op=border (value 0 or 1) turns the map border off or on live, so a test needs no INI edit.
 
 ## 1.3.2 - 2026-09-24 - working
 

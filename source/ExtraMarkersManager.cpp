@@ -6,6 +6,7 @@
 #include "RE/M/MapMenu.h"
 
 #include "Diagnostics.h"
+#include "FrameArt.h"
 #include "Settings.h"
 #include "utils/Logger.h"
 
@@ -521,7 +522,7 @@ namespace LMU
 					const float width = right - left;
 					const float height = bottom - top;
 
-					logger::info("DrawMapBorder: map extents local ({},{})-({},{}) -> screen ({},{})-({},{}) - {}x{}, aspect {:.3f}",
+					logger::debug("DrawMapBorder: [diagnostic only - NOT used to place the border, which is placed in stage units] map extents local ({},{})-({},{}) -> screen pixels ({},{})-({},{}) - {}x{}, aspect {:.3f}",
 						localTopLeft.x, localTopLeft.y, localBottomRight.x, localBottomRight.y,
 						left, top, right, bottom, width, height,
 						height != 0.0F ? width / height : 0.0F);
@@ -691,26 +692,28 @@ namespace LMU
 		// Untarnished UI's off-white, the same colour the frame reskin uses.
 		constexpr double kBorderColour = 0xF5F2E9;
 
-		// THE SKYRIM FRAME - the REAL art, not a drawing of it (the author, 2026-09-01: "all you did
-		// was basically draw lines in the shape of it instead of actually copying it"). The art is
-		// the MO2 "Skyrim" (Trosski) panel frame, the same 78x78 nine-slice the menu framework's
-		// Skyrim theme uses; it ships beside this DLL as three DDS tiles - one corner and the two
-		// edge strips - and Scaleform loads them at runtime through its img:// protocol.
+		// THE SKYRIM FRAME - the REAL art (the author, 2026-09-01: "all you did was basically draw lines in
+		// the shape of it instead of actually copying it"). The art is the MO2 "Skyrim" (Trosski) panel frame,
+		// the same 78x78 nine-slice the menu framework's Skyrim theme uses.
 		//
-		// Eight clips: four corners at the art's own size (mirrored with negative scales, so one
-		// tile serves all four) and four edges stretched along their runs. Loading is asynchronous,
-		// so the geometry is (re)applied every frame the map is open - this function already runs
-		// per frame, and a clip that has not finished loading simply has nothing to place yet.
+		// It is drawn from the art's own pixels with the clip drawing API (include/FrameArt.h, generated from
+		// the three DDS tiles by tools/gen-frame-art.py). It used to be loaded as DDS files through Scaleform's
+		// img:// protocol, which never worked: img:// only resolves images the game registered in memory, so
+		// every spelling of the path came back as the engine's "img" placeholder (1.3.3 test, 2026-10-18). A
+		// drawn clip needs no load, so nothing here is asynchronous - which matters because this function runs
+		// ONCE when the map opens, not every frame.
+		//
+		// Eight clips: four corners at the art's own size (mirrored with negative scales, so one tile serves
+		// all four) and four edges stretched along their runs. Each clip is drawn the first time it is made;
+		// its position and scale are applied on every pass.
 		auto placeArtFrame = [&](float a_left, float a_top, float a_right, float a_bottom) -> bool {
-			constexpr float kTile = 26.0F;   // the corner slice, in the art's own pixels
-			constexpr const char* kCorner = "img://textures/interface/apocrypharealm/lmuframe_corner.dds";
-			constexpr const char* kEdgeH = "img://textures/interface/apocrypharealm/lmuframe_edge_h.dds";
-			constexpr const char* kEdgeV = "img://textures/interface/apocrypharealm/lmuframe_edge_v.dds";
+			constexpr float kTile = static_cast<float>(frameart::kTile);   // the corner slice, in the art's own pixels
 
+			enum class Kind { kCorner, kEdgeH, kEdgeV };
 			struct Piece
 			{
 				const char* name;
-				const char* image;
+				Kind kind;
 				float x, y;          // where its own top-left sits
 				float w, h;          // how big to draw it
 				float scaleX, scaleY;  // -1 mirrors the tile
@@ -721,20 +724,32 @@ namespace LMU
 			if (innerW <= 0.0F || innerH <= 0.0F) { return false; }
 
 			const Piece pieces[] = {
-				{ "tl", kCorner, a_left,                 a_top,                  kTile,  kTile,   1.0F,  1.0F },
-				{ "tr", kCorner, a_right,                a_top,                  kTile,  kTile,  -1.0F,  1.0F },
-				{ "bl", kCorner, a_left,                 a_bottom,               kTile,  kTile,   1.0F, -1.0F },
-				{ "br", kCorner, a_right,                a_bottom,               kTile,  kTile,  -1.0F, -1.0F },
-				{ "et", kEdgeH,  a_left + kTile,         a_top,                  innerW, kTile,   1.0F,  1.0F },
-				{ "eb", kEdgeH,  a_left + kTile,         a_bottom,               innerW, kTile,   1.0F, -1.0F },
-				{ "el", kEdgeV,  a_left,                 a_top + kTile,          kTile,  innerH,  1.0F,  1.0F },
-				{ "er", kEdgeV,  a_right,                a_top + kTile,          kTile,  innerH, -1.0F,  1.0F },
+				{ "tl", Kind::kCorner, a_left,                 a_top,                  kTile,  kTile,   1.0F,  1.0F },
+				{ "tr", Kind::kCorner, a_right,                a_top,                  kTile,  kTile,  -1.0F,  1.0F },
+				{ "bl", Kind::kCorner, a_left,                 a_bottom,               kTile,  kTile,   1.0F, -1.0F },
+				{ "br", Kind::kCorner, a_right,                a_bottom,               kTile,  kTile,  -1.0F, -1.0F },
+				{ "et", Kind::kEdgeH,  a_left + kTile,         a_top,                  innerW, kTile,   1.0F,  1.0F },
+				{ "eb", Kind::kEdgeH,  a_left + kTile,         a_bottom,               innerW, kTile,   1.0F, -1.0F },
+				{ "el", Kind::kEdgeV,  a_left,                 a_top + kTile,          kTile,  innerH,  1.0F,  1.0F },
+				{ "er", Kind::kEdgeV,  a_right,                a_top + kTile,          kTile,  innerH, -1.0F,  1.0F },
 			};
 
-			// Frames elapsed since the clips were made, so an async load is given time to land.
-			static int framesSinceCreate = 0;
-			constexpr int kLoadGraceFrames = 45;   // about three quarters of a second
-			++framesSinceCreate;
+			// One filled rectangle in the clip's own 26x26 space.
+			auto fillRect = [](RE::GFxValue& a_clip, double a_x, double a_y, double a_w, double a_h,
+							   std::uint32_t a_rgb, std::uint8_t a_alpha) {
+				std::array<RE::GFxValue, 2> fill{ RE::GFxValue{ static_cast<double>(a_rgb) }, RE::GFxValue{ static_cast<double>(a_alpha) } };
+				(void)a_clip.Invoke("beginFill", nullptr, fill.data(), fill.size());
+				auto pt = [&](const char* a_call, double a_px, double a_py) {
+					std::array<RE::GFxValue, 2> p{ RE::GFxValue{ a_px }, RE::GFxValue{ a_py } };
+					(void)a_clip.Invoke(a_call, nullptr, p.data(), p.size());
+				};
+				pt("moveTo", a_x, a_y);
+				pt("lineTo", a_x + a_w, a_y);
+				pt("lineTo", a_x + a_w, a_y + a_h);
+				pt("lineTo", a_x, a_y + a_h);
+				pt("lineTo", a_x, a_y);
+				(void)a_clip.Invoke("endFill");
+			};
 
 			bool allPresent = true;
 			for (const Piece& piece : pieces)
@@ -754,40 +769,48 @@ namespace LMU
 						allPresent = false;
 						continue;
 					}
-					std::array<RE::GFxValue, 1> load{ RE::GFxValue{ piece.image } };
-					(void)clip.Invoke("loadMovie", nullptr, load.data(), load.size());
-					logger::debug("map frame: created {} and asked for {}", clipName, piece.image);
-					framesSinceCreate = 0;  // a fresh clip restarts the grace period
+
+					switch (piece.kind)
+					{
+					case Kind::kCorner:
+						for (const frameart::Run& run : frameart::kCorner)
+						{
+							fillRect(clip, run.x, run.y, run.len, 1.0, run.rgb, run.alpha);
+						}
+						break;
+					case Kind::kEdgeH:
+						for (int row = 0; row < frameart::kTile; ++row)
+						{
+							fillRect(clip, 0.0, row, frameart::kTile, 1.0, frameart::kEdgeHRows[row].rgb, frameart::kEdgeHRows[row].alpha);
+						}
+						break;
+					case Kind::kEdgeV:
+						for (int col = 0; col < frameart::kTile; ++col)
+						{
+							fillRect(clip, col, 0.0, 1.0, frameart::kTile, frameart::kEdgeVCols[col].rgb, frameart::kEdgeVCols[col].alpha);
+						}
+						break;
+					}
+					logger::debug("map frame: drew {} from the art's pixels", clipName);
 				}
 
-				// Position every frame: the map's rectangle can move, and a clip that only just
-				// finished loading needs its size applying after the fact.
+				// Position and scale on every pass: the map's rectangle can move. The art is 26x26 in the
+				// clip's own space, so a percentage scale gives the size.
 				clip.SetMember("_x", RE::GFxValue{ static_cast<double>(piece.x) });
 				clip.SetMember("_y", RE::GFxValue{ static_cast<double>(piece.y) });
-				clip.SetMember("_width", RE::GFxValue{ static_cast<double>(piece.w * piece.scaleX) });
-				clip.SetMember("_height", RE::GFxValue{ static_cast<double>(piece.h * piece.scaleY) });
+				clip.SetMember("_xscale", RE::GFxValue{ static_cast<double>(piece.w / kTile * piece.scaleX * 100.0F) });
+				clip.SetMember("_yscale", RE::GFxValue{ static_cast<double>(piece.h / kTile * piece.scaleY * 100.0F) });
 
-				// Did the image actually arrive? Setting a size on a clip with NOTHING in it does not
-				// stick - an empty clip stays 0 wide - so reading the width straight back answers
-				// it without eyes on the screen. But loadMovie is ASYNCHRONOUS: asking in the same
-				// frame the load was requested always says empty, which is exactly the false alarm
-				// the first version of this check raised. So the verdict waits out a grace period
-				// of frames, and until then a bare clip only means "still loading".
+				// Did the art arrive? A drawn clip that holds geometry reports a width, so read it back.
 				RE::GFxValue back;
 				if (clip.GetMember("_width", &back) && back.IsNumber())
 				{
-					const bool bare = std::fabs(back.GetNumber()) < 0.5;
-					if (bare && framesSinceCreate < kLoadGraceFrames)
-					{
-						// still on its way - say nothing, draw nothing, ask again next frame
-					}
-					else if (bare)
+					if (std::fabs(back.GetNumber()) < 0.5)
 					{
 						static std::set<std::string> warned;
 						if (warned.insert(clipName).second)
 						{
-							logger::warn("map frame: {} is still empty {} frames after loadMovie - Scaleform "
-										 "did not take \"{}\"", clipName, framesSinceCreate, piece.image);
+							logger::warn("map frame: {} has no width after it was drawn - the frame art did not take", clipName);
 						}
 						allPresent = false;
 					}
@@ -796,8 +819,7 @@ namespace LMU
 						static std::set<std::string> reported;
 						if (reported.insert(clipName).second)
 						{
-							logger::info("map frame: {} carries the art ({:.1f} wide after {} frames)",
-										 clipName, back.GetNumber(), framesSinceCreate);
+							logger::info("map frame: {} is drawn ({:.1f} wide at its scale)", clipName, std::fabs(back.GetNumber()));
 						}
 					}
 				}
@@ -817,8 +839,7 @@ namespace LMU
 				if (!warnedArt)
 				{
 					warnedArt = true;
-					logger::warn("map frame: the Skyrim frame art could not be placed; falling back to the plain line. "
-								 "Check textures/interface/apocrypharealm/lmuframe_*.dds are installed.");
+					logger::warn("map frame: the Skyrim frame art could not be drawn; falling back to the plain line.");
 				}
 				strokeRect(kBorderColour, plateLeft, plateTop, plateRight, plateBottom);
 			}
