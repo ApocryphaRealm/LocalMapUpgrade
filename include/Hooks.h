@@ -37,6 +37,11 @@ void DetachShaderReferenceEffect(RE::ShaderReferenceEffect* a_effect);
 
 namespace hooks
 {
+	// Nothing in this file resolves an address at static scope. A static REL::Relocation built from an Address Library
+	// ID is constructed by the C runtime while the DLL loads - before SKSEPluginLoad - and constructing it opens the
+	// Address Library, so a missing or wrong one showed CommonLibSSE-NG's bare box before the Address Library guard
+	// could run (gate row no-address-resolved-at-static-init; the Infinity UI 2.1.3 fix). The vtables and the three
+	// function addresses below are resolved when Install() asks for them.
 	class LocalMapMenu
 	{
 		static constexpr REL::VariantID AdvanceId{ 52078, 52966, 0x90ED80 };
@@ -46,7 +51,7 @@ namespace hooks
 		class InputHandler
 		{
 		public:
-			static inline REL::Relocation<std::uintptr_t> vTable{ RE::VTABLE_LocalMapMenu__InputHandler[0] };			
+			static REL::Relocation<std::uintptr_t> VTable() { return REL::Relocation<std::uintptr_t>{ RE::VTABLE_LocalMapMenu__InputHandler[0] }; }
 
 			static inline REL::Relocation<bool (RE::LocalMapMenu::InputHandler::*)(RE::InputEvent*)> CanProcess;
 			static inline REL::Relocation<bool (RE::LocalMapMenu::InputHandler::*)(RE::ButtonEvent*)> ProcessButton;
@@ -57,17 +62,17 @@ namespace hooks
 			static constexpr REL::VariantID RenderOffScreenId{ 16094, 16335, 0x206C90 };
 
 		public:
-			static inline REL::Relocation<void (RE::LocalMapMenu::LocalMapCullingProcess::*)()> RenderOffScreen{ RenderOffScreenId };
+			static std::uintptr_t RenderOffScreenAddress() { return RenderOffScreenId.address(); }
 		};
 
-		static inline REL::Relocation<void (RE::LocalMapMenu::*)()> Advance{ AdvanceId };
-		static inline REL::Relocation<void (RE::LocalMapMenu::*)()> PopulateData{ PopulateDataId };
+		static std::uintptr_t AdvanceAddress() { return AdvanceId.address(); }
+		static std::uintptr_t PopulateDataAddress() { return PopulateDataId.address(); }
 	};
 	
 	class BSWaterShader
 	{
 	public:
-		static inline REL::Relocation<std::uintptr_t> vTable{ RE::VTABLE_BSWaterShader[0] };
+		static REL::Relocation<std::uintptr_t> VTable() { return REL::Relocation<std::uintptr_t>{ RE::VTABLE_BSWaterShader[0] }; }
 
 		static inline REL::Relocation<bool (RE::BSWaterShader::*)(std::uint32_t)> SetupTechnique;
 	};
@@ -93,7 +98,7 @@ namespace hooks
 	class ScriptEffect
 	{
 	public:
-		static inline REL::Relocation<std::uintptr_t> vTable{ RE::VTABLE_ScriptEffect[0] };
+		static REL::Relocation<std::uintptr_t> VTable() { return REL::Relocation<std::uintptr_t>{ RE::VTABLE_ScriptEffect[0] }; }
 
 		static inline REL::Relocation<void (RE::ScriptEffect::*)(float)> Update;
 	};
@@ -101,7 +106,7 @@ namespace hooks
 	class DetectLifeEffect
 	{
 	public:
-		static inline REL::Relocation<std::uintptr_t> vTable{ RE::VTABLE_DetectLifeEffect[0] };
+		static REL::Relocation<std::uintptr_t> VTable() { return REL::Relocation<std::uintptr_t>{ RE::VTABLE_DetectLifeEffect[0] }; }
 
 		static inline REL::Relocation<void (RE::DetectLifeEffect::*)(float)> Update;
 	};
@@ -110,7 +115,7 @@ namespace hooks
 	class StopHitEffectsVisitor
 	{
 	public:
-		static inline REL::Relocation<std::uintptr_t> vTable{ RE::VTABLE___StopHitEffectsVisitor[0] };
+		static REL::Relocation<std::uintptr_t> VTable() { return REL::Relocation<std::uintptr_t>{ RE::VTABLE___StopHitEffectsVisitor[0] }; }
 
 		static inline REL::Relocation<RE::BSContainer::ForEachResult (RE::StopHitEffectsVisitor::*)(RE::ReferenceEffect*)> Visit;
 	};
@@ -118,7 +123,7 @@ namespace hooks
 	class ShaderReferenceEffect
 	{
 	public:
-		static inline REL::Relocation<std::uintptr_t> vTable{ RE::VTABLE_ShaderReferenceEffect[0] };
+		static REL::Relocation<std::uintptr_t> VTable() { return REL::Relocation<std::uintptr_t>{ RE::VTABLE_ShaderReferenceEffect[0] }; }
 
 		static inline REL::Relocation<void (RE::ShaderReferenceEffect::*)()> DetachImpl;
 	};
@@ -128,7 +133,7 @@ namespace hooks
 		// `LocalMapMenu::LocalMapCullingProcess::RenderOffscreen` (call to `TESWorldSpace::IsSmallWorld`)
 		struct IsSmallWorldHook : Hook<5>
 		{
-			static std::uintptr_t Address() { return LocalMapMenu::LocalMapCullingProcess::RenderOffScreen.address() + REL::Relocate(0x105, 0x105, 0x13A); }
+			static std::uintptr_t Address() { return LocalMapMenu::LocalMapCullingProcess::RenderOffScreenAddress() + REL::Relocate(0x105, 0x105, 0x13A); }
 
 			IsSmallWorldHook(std::uintptr_t a_hookedAddress)
 			: Hook{ a_hookedAddress, reinterpret_cast<std::uintptr_t>(&FakeNotSmallWorld) }
@@ -141,9 +146,9 @@ namespace hooks
 			// Line 17: on 1.7.104 the call to AddQuestMarkersToMap (id 53073) is 6 bytes later, at +0x7A6 - the argument
 			// setup before it grew (tools/check-17.json, read from the 1.7.104 code with .MD/scripts/check-17.py).
 #if RUNTIME_LINE == 17
-			static std::uintptr_t Address() { return LocalMapMenu::PopulateData.address() + 0x7A6; }
+			static std::uintptr_t Address() { return LocalMapMenu::PopulateDataAddress() + 0x7A6; }
 #else
-			static std::uintptr_t Address() { return LocalMapMenu::PopulateData.address() + REL::Relocate(0x673, 0x7A0, 0x673); }
+			static std::uintptr_t Address() { return LocalMapMenu::PopulateDataAddress() + REL::Relocate(0x673, 0x7A0, 0x673); }
 #endif
 
 			AddQuestMarkersToMapHook(std::uintptr_t a_hookedAddress)
@@ -154,7 +159,7 @@ namespace hooks
 		// `LocalMapMenu::Advance` (call to `GFxValue::ObjectInterface::Invoke` for "CreateMarkers")
 		struct InvokeCreateMarkersHook : Hook<5>
 		{
-			static std::uintptr_t Address() { return LocalMapMenu::Advance.address() + REL::Relocate(0xDF, 0xD9, 0x127); }
+			static std::uintptr_t Address() { return LocalMapMenu::AdvanceAddress() + REL::Relocate(0xDF, 0xD9, 0x127); }
 
 			InvokeCreateMarkersHook(std::uintptr_t a_hookedAddress)
 				: Hook{ a_hookedAddress, reinterpret_cast<std::uintptr_t>(&InvokeCreateAndPostProcessMarkers) }
@@ -186,32 +191,32 @@ namespace hooks
 		GFxValue::ObjectInterface::Invoke = defaultTrampoline.write_call(invokeCreateMarkersHook);
 		diagnostics::RecordHookInstalled(diagnostics::Hook::kInvokeCreateMarkers, GFxValue::ObjectInterface::Invoke.address() != 0);
 
-		LocalMapMenu::InputHandler::CanProcess = LocalMapMenu::InputHandler::vTable.write_vfunc(1, CanProcess);
+		LocalMapMenu::InputHandler::CanProcess = LocalMapMenu::InputHandler::VTable().write_vfunc(1, CanProcess);
 		diagnostics::RecordHookInstalled(diagnostics::Hook::kInputHandlerCanProcess, LocalMapMenu::InputHandler::CanProcess.address() != 0);
 
 		// `LocalMapMenu::InputHandler::ProcessButton` offset in the virtual table changes in VR
 		// Line 17: Skyrim 1.7.99 inserted two virtuals into MenuEventHandler before the input functions, so ProcessButton
 		// is slot 7 there (read from the 1.7.104 vtable: slots 3-4 are new `return false` stubs, 5-7 the three handlers).
 #if RUNTIME_LINE == 17
-		LocalMapMenu::InputHandler::ProcessButton = LocalMapMenu::InputHandler::vTable.write_vfunc(7, ProcessButton);
+		LocalMapMenu::InputHandler::ProcessButton = LocalMapMenu::InputHandler::VTable().write_vfunc(7, ProcessButton);
 #else
-		LocalMapMenu::InputHandler::ProcessButton = LocalMapMenu::InputHandler::vTable.write_vfunc(REL::Module::IsVR() ? 8 : 5, ProcessButton);
+		LocalMapMenu::InputHandler::ProcessButton = LocalMapMenu::InputHandler::VTable().write_vfunc(REL::Module::IsVR() ? 8 : 5, ProcessButton);
 #endif
 		diagnostics::RecordHookInstalled(diagnostics::Hook::kInputHandlerProcessButton, LocalMapMenu::InputHandler::ProcessButton.address() != 0);
 
-		BSWaterShader::SetupTechnique = BSWaterShader::vTable.write_vfunc(2, &SetupWaterShaderTechnique);
+		BSWaterShader::SetupTechnique = BSWaterShader::VTable().write_vfunc(2, &SetupWaterShaderTechnique);
 		diagnostics::RecordHookInstalled(diagnostics::Hook::kWaterShaderSetupTechnique, BSWaterShader::SetupTechnique.address() != 0);
 
-		DetectLifeEffect::Update = DetectLifeEffect::vTable.write_vfunc(4, DetectLifeEffectUpdate);
+		DetectLifeEffect::Update = DetectLifeEffect::VTable().write_vfunc(4, DetectLifeEffectUpdate);
 		diagnostics::RecordHookInstalled(diagnostics::Hook::kDetectLifeEffectUpdate, DetectLifeEffect::Update.address() != 0);
 
-		ScriptEffect::Update = ScriptEffect::vTable.write_vfunc(4, ScriptEffectUpdate);
+		ScriptEffect::Update = ScriptEffect::VTable().write_vfunc(4, ScriptEffectUpdate);
 		diagnostics::RecordHookInstalled(diagnostics::Hook::kScriptEffectUpdate, ScriptEffect::Update.address() != 0);
 
-		StopHitEffectsVisitor::Visit = StopHitEffectsVisitor::vTable.write_vfunc(1, VisitStopHitEffects);
+		StopHitEffectsVisitor::Visit = StopHitEffectsVisitor::VTable().write_vfunc(1, VisitStopHitEffects);
 		diagnostics::RecordHookInstalled(diagnostics::Hook::kStopHitEffectsVisit, StopHitEffectsVisitor::Visit.address() != 0);
 
-		ShaderReferenceEffect::DetachImpl = ShaderReferenceEffect::vTable.write_vfunc(0x3E, DetachShaderReferenceEffect);
+		ShaderReferenceEffect::DetachImpl = ShaderReferenceEffect::VTable().write_vfunc(0x3E, DetachShaderReferenceEffect);
 		diagnostics::RecordHookInstalled(diagnostics::Hook::kShaderReferenceEffectDetach, ShaderReferenceEffect::DetachImpl.address() != 0);
 
 		// LocateConsoleCommand returns null when the name is not a registered console command

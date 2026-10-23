@@ -1,9 +1,12 @@
 ﻿# Local Map Upgrade
 
-Version 1.3.3
+Version 1.3.4
 
 WHAT CHANGED
 ------------
+
+Version 1.3.4
+A missing or wrong Address Library now shows the mod's own message naming the file it needs, instead of a bare error box from the library the mod is built on. No change to how the map works.
 
 Version 1.3.3
 New setting Minimum opacity (INI [MapMenu] fMapLocalMinOpacity, 0.0 to 1.0, default 0.0 = unchanged): how see-through the explored local map may get in dark places. Raise it if the map is hard to read in dark interiors. Unexplored ground stays hidden by fog of war.
